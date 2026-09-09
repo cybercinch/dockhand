@@ -3,6 +3,8 @@
 node_modules/
 .svelte-kit/
 bun.lock
+# Generated on demand by `just lock` for the Docker build; not the source of truth.
+package-lock.json
 data/db
 data/.encryption_key
 .last-synced-gitea

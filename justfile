@@ -16,11 +16,14 @@ default:
 # Build
 # ---------------------------------------------------------------------------
 
-# Generate package-lock.json if missing (Dockerfile's `npm ci` needs it; upstream ships none).
+# Generate a complete package-lock.json if missing. The Dockerfile's `npm ci`
+# needs one and upstream ships none (bun-native repo). A full `npm install` is
+# required, not `--package-lock-only` — the latter omits the per-platform
+# optional deps (@tailwindcss/oxide-*, rollup, ...) that `npm ci` insists on.
 lock:
     @if [ ! -f package-lock.json ]; then \
-        echo "==> generating package-lock.json"; \
-        npm install --package-lock-only --ignore-scripts; \
+        echo "==> generating package-lock.json (full npm install)"; \
+        npm install --ignore-scripts --no-audit --no-fund; \
     else \
         echo "==> package-lock.json present"; \
     fi
