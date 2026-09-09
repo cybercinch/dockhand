@@ -59,17 +59,21 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 
 	let bulkKeys: string[] = [];
 	let resolvedRefs: string[] = [];
+	// The two modes are probed independently: a bad bulk selector must not
+	// suppress the inline-ref check (and vice versa). We only report ok:false
+	// when a mode that was ASKED FOR hard-failed and produced nothing - a green
+	// marker on a ref whose sibling selector is mistyped is still correct.
+	let bulkError: string | undefined;
+	let refError: string | undefined;
 
 	// A provider missing a mode throws UnsupportedOperationError; that is not a
 	// failure - it just means that mode contributes no keys. Any other throw
-	// (network, bad token, bad path) is a real probe failure.
+	// (network, bad token, bad path) is a real probe failure for that mode.
 	if (selector && provider.supportsBulk) {
 		try {
 			bulkKeys = await probeBulkKeysCached(id, provider, row.config, selector);
 		} catch (e) {
-			if (!(e instanceof UnsupportedOperationError)) {
-				return json({ ok: false, error: shortError(e) }, { status: 200 });
-			}
+			if (!(e instanceof UnsupportedOperationError)) bulkError = shortError(e);
 		}
 	}
 
@@ -78,13 +82,23 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			const resolved = await provider.resolveSecretReferences(row.config, refs);
 			resolvedRefs = [...resolved.keys()];
 		} catch (e) {
-			if (!(e instanceof UnsupportedOperationError)) {
-				return json({ ok: false, error: shortError(e) }, { status: 200 });
-			}
+			if (!(e instanceof UnsupportedOperationError)) refError = shortError(e);
 		}
 	}
 
-	return json({ ok: true, bulkKeys, resolvedRefs });
+	// ok:false only when every mode that was asked for failed and nothing came
+	// back - otherwise return what resolved plus a soft note.
+	const askedBulk = Boolean(selector && provider.supportsBulk);
+	const askedRefs = Boolean(refs.length && provider.supportsReferences);
+	const allFailed =
+		(askedBulk ? bulkError !== undefined : true) &&
+		(askedRefs ? refError !== undefined : true) &&
+		(bulkError !== undefined || refError !== undefined);
+	if (allFailed) {
+		return json({ ok: false, error: bulkError ?? refError }, { status: 200 });
+	}
+
+	return json({ ok: true, bulkKeys, resolvedRefs, error: bulkError ?? refError });
 };
 
 /** A short, non-reflecting error message for the probe-failed UI line. */
