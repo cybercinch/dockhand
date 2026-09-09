@@ -1,11 +1,18 @@
-# Dockhand (cybercinch fork) — build & dev recipes.
-# Homelab target is amd64, so every image recipe is single-arch linux/amd64.
+# Dockhand (cybercinch fork) — build, dev & release recipes.
+# Homelab target is amd64, so image recipes default to single-arch linux/amd64.
+# Override: `just platform=linux/amd64,linux/arm64 push`
 
 set shell := ["bash", "-uc"]
 
+# Local build tag (loaded into the docker engine for `just run`).
 image      := "dockhand:local"
-version    := `cat VERSION 2>/dev/null || echo dev`
+# Published image. Override the registry: `just registry=ghcr.io/cybercinch push`
+registry   := "docker.io/cybercinch"
+repo_image := registry + "/dockhand"
+# Immutable tag from git; `latest` moves.
+version    := `git describe --tags --always --dirty 2>/dev/null || cat VERSION 2>/dev/null || echo dev`
 platform   := "linux/amd64"
+builder    := "cybercinch-multiarch"
 api_dir    := "../../go/vaultwarden-api"   # cybercinch/Vaultwarden-API checkout
 
 # Show the recipe list.
@@ -16,10 +23,11 @@ default:
 # Build
 # ---------------------------------------------------------------------------
 
-# Generate a complete package-lock.json if missing. The Dockerfile's `npm ci`
-# needs one and upstream ships none (bun-native repo). A full `npm install` is
-# required, not `--package-lock-only` — the latter omits the per-platform
-# optional deps (@tailwindcss/oxide-*, rollup, ...) that `npm ci` insists on.
+# The Dockerfile's `npm ci` needs a lockfile and upstream ships none (bun repo).
+# A full `npm install` is required, not `--package-lock-only` (that omits the
+# per-platform optional deps @tailwindcss/oxide-*, rollup, ... `npm ci` wants).
+#
+# Generate package-lock.json if it is missing.
 lock:
     @if [ ! -f package-lock.json ]; then \
         echo "==> generating package-lock.json (full npm install)"; \
@@ -28,7 +36,7 @@ lock:
         echo "==> package-lock.json present"; \
     fi
 
-# Build the single-arch amd64 image, tagged :local and :<VERSION>.
+# Build the local amd64 image, tagged :local and :<git describe>.
 build: lock
     docker build \
         --platform {{platform}} \
@@ -49,6 +57,45 @@ rebuild: lock
 # Print the image size once built.
 size:
     @docker image ls {{image}} --format '{{{{.Repository}}}}:{{{{.Tag}}}}  {{{{.Size}}}}'
+
+# ---------------------------------------------------------------------------
+# Release — push to {{registry}}
+# ---------------------------------------------------------------------------
+
+# One-time: a buildx builder that can push (and do multi-arch).
+buildx-setup:
+    @if ! docker buildx inspect {{builder}} >/dev/null 2>&1; then \
+        docker buildx create --name {{builder}} --driver docker-container --bootstrap; \
+    fi
+    docker buildx use {{builder}}
+
+# Log in to the fork's registry (Docker Hub by default).
+login:
+    docker login {{registry}}
+
+# amd64 only unless you pass `platform=linux/amd64,linux/arm64` (buildx fills
+# TARGETARCH per platform).
+#
+# Build and push <registry>/dockhand:<git describe> + :latest (run `just login` first).
+push: lock buildx-setup
+    docker buildx build \
+        --platform {{platform}} \
+        --push \
+        -t {{repo_image}}:{{version}} \
+        -t {{repo_image}}:latest \
+        .
+    @echo "==> pushed {{repo_image}}:{{version}} and :latest ({{platform}})"
+
+tag := version
+
+# Build and push one explicit tag: `just tag=v1.0.46-cc1 push-tag`
+push-tag: lock buildx-setup
+    docker buildx build \
+        --platform {{platform}} \
+        --push \
+        -t {{repo_image}}:{{tag}} \
+        .
+    @echo "==> pushed {{repo_image}}:{{tag}}"
 
 # ---------------------------------------------------------------------------
 # Run (local image, not the published fnsys/dockhand)

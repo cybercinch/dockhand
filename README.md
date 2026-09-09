@@ -39,6 +39,24 @@ No database migration is required (`secret_providers.type` is free text).
 See [`docs/vaultwarden-provider-spec.md`](docs/vaultwarden-provider-spec.md) for
 the full design and milestone status.
 
+### Build & release (this fork)
+
+A `justfile` at the repo root wraps the build (upstream ships no npm lockfile, so
+one is generated on demand):
+
+```sh
+just                 # list recipes
+just test            # bun unit suite
+just build           # local amd64 image -> dockhand:local
+just run             # run it on :3000 with the docker socket
+just login           # docker login docker.io
+just push            # build + push docker.io/cybercinch/dockhand:<git describe> + :latest
+just sync-upstream   # fast-forward main to upstream
+```
+
+Override the registry or go multi-arch:
+`just registry=ghcr.io/cybercinch platform=linux/amd64,linux/arm64 push`.
+
 ---
 
 ## About
