@@ -1139,14 +1139,30 @@
 		}, 1000);
 	}
 
-	// op://... inline references in the current env vars, mapped var -> ref, so a
-	// resolved ref (the provider returns ref STRINGS) maps back to its var name.
+	// Inline-reference URI scheme per provider type. Bulk-only backends (doppler,
+	// vault, infisical) have none. Keep in sync with each provider's isReference()
+	// in src/lib/server/secretproviders/*.ts.
+	const PROVIDER_REF_SCHEME: Record<string, string> = {
+		'op-service-account': 'op://',
+		'op-connect': 'op://',
+		'azure-kv': 'azurekv://',
+		proton: 'pass://',
+		keepass: 'keepass://',
+		vaultwarden: 'vw://'
+	};
+
+	// Inline provider references (op://, vw://, ...) in the current env vars, mapped
+	// var -> ref, so a resolved ref (the provider returns ref STRINGS) maps back to
+	// its var name. Only the BOUND provider's scheme is collected; surrounding
+	// quotes are stripped for detection, matching the server's isReference().
 	function inlineRefPairs(): { varName: string; ref: string }[] {
+		const scheme = selectedProviderType ? PROVIDER_REF_SCHEME[selectedProviderType] : undefined;
+		if (!scheme) return [];
 		const pairs: { varName: string; ref: string }[] = [];
 		for (const v of envVars) {
 			const key = v.key.trim();
-			const val = (v.value ?? '').trim();
-			if (key && val.startsWith('op://')) pairs.push({ varName: key, ref: val });
+			const val = (v.value ?? '').trim().replace(/^(["'])(.*)\1$/s, '$2');
+			if (key && val.startsWith(scheme)) pairs.push({ varName: key, ref: val });
 		}
 		return pairs;
 	}

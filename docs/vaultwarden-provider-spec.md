@@ -212,6 +212,13 @@ for Dockhand.
 5. **Reference syntax**: there is **no `${provider:name}` parser**. Each provider
    owns a URI scheme (`op://`, `azurekv://`, `pass://`, `keepass://`).
    → this fork uses **`vw://SECRET_NAME`**.
+   ⚠️ The client-side pre-deploy probe in `StackModal.svelte::inlineRefPairs()`
+   was **hardcoded to `op://`** — it never probed any other scheme, so the green
+   "IN VAULT" marker only ever worked for 1Password. This fork generalises it to
+   a `PROVIDER_REF_SCHEME` map keyed by the bound provider's type (op / azurekv /
+   pass / keepass / vw). Deploy-time resolution was always scheme-agnostic
+   (server-side `provider.isReference`); only the marker was affected. **Worth
+   upstreaming on its own.**
 6. **Encryption at rest**: `secret_providers.config` is an encrypted JSON blob;
    `createSecretProvider` / db layer handle it transparently. `type` is free
    `text` (**not an enum → no Drizzle migration**). `redactProviderConfig` strips

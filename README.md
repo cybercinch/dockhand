@@ -30,6 +30,7 @@ personal / internal-business use only).
 | `src/lib/server/secretproviders/vaultwarden.ts` (new) | Adds a **`vaultwarden` secret provider** — resolves stack secrets from a self-hosted Vaultwarden via the companion [Vaultwarden-API](https://github.com/cybercinch/Vaultwarden-API) service (plain authenticated HTTPS; no `bws` binary, no Bitwarden Secrets Manager). Supports `vw://NAME` inline references and bulk pull (selector = collection name). |
 | `src/lib/server/secretproviders/index.ts`, `shared.ts` | Registers the provider; adds `VaultwardenConfig` to the shared unions, `apiKey` to `SECRET_CONFIG_KEYS`, `apiBaseUrl` to `PROVIDER_DESTINATION_KEYS`. |
 | `src/routes/settings/secrets/ProviderModal.svelte` | Adds the Vaultwarden option, its config fields, and its bulk-selector field. |
+| `src/routes/stacks/StackModal.svelte` | `inlineRefPairs()` was hardcoded to `op://` — generalised to a per-provider scheme map so the pre-deploy "IN VAULT" marker works for `vw://` (and `azurekv://` / `pass://` / `keepass://`). Upstream bug, worth a standalone PR. |
 | `tests/secret-provider-vaultwarden.test.ts` (new) | Unit tests for the provider. |
 | `docs/secrets-provider-vaultwarden.md` (new) | Manual page for the provider. |
 | `docs/vaultwarden-provider-spec.md` (new) | Design spec + upstream source findings. |
