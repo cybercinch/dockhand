@@ -35,6 +35,7 @@ export type SecretProviderType =
 	| 'proton'
 	| 'azure-kv'
 	| 'keepass'
+	| 'vaultwarden'
 	// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 	| (string & {});
 
@@ -236,6 +237,29 @@ export interface KeePassConfig {
 	keyFilePath?: string;
 }
 
+/**
+ * Vaultwarden (via the companion Vaultwarden-API service): a base URL for that
+ * service and an API key sent as the `Authorization` header. Optional org /
+ * collection / folder name filters are passed as query params on every call
+ * (belt-and-braces with a server-scoped key). `insecureSkipTlsVerify` is the
+ * string `"true"` to disable TLS certificate verification (internal CA only);
+ * `timeoutSeconds` overrides the 10s per-request timeout. Bulk pull is bound to
+ * a stack via `DOCKHAND_SECRET_SELECTOR`, whose value overrides `collectionName`
+ * (`*` / `all` = no extra filter); inline `vw://NAME` references resolve one
+ * item.
+ */
+export interface VaultwardenConfig {
+	apiBaseUrl: string;
+	apiKey: string;
+	organizationName?: string;
+	collectionName?: string;
+	folderName?: string;
+	/** `"true"` (case-insensitive) disables TLS certificate verification. */
+	insecureSkipTlsVerify?: string;
+	/** Per-request timeout in seconds (string, from the form). Default 10. */
+	timeoutSeconds?: string;
+}
+
 /** Persisted (encrypted) config, discriminated by the provider `type`. */
 export type SecretProviderConfig =
 	| ServiceAccountConfig
@@ -246,7 +270,8 @@ export type SecretProviderConfig =
 	| BitwardenConfig
 	| ProtonConfig
 	| AzureKvConfig
-	| KeePassConfig;
+	| KeePassConfig
+	| VaultwardenConfig;
 
 /**
  * Config keys that hold a SECRET across every provider type. Only these are stripped
@@ -255,7 +280,7 @@ export type SecretProviderConfig =
  * a non-secret coordinate the user needs to see and edit. Keep in sync with the
  * `type: 'password'` fields in ProviderModal.svelte's PROVIDER_FIELDS.
  */
-export const SECRET_CONFIG_KEYS = new Set(['token', 'clientSecret', 'password']);
+export const SECRET_CONFIG_KEYS = new Set(['token', 'clientSecret', 'password', 'apiKey']);
 
 /**
  * Every user-overridable connection-destination field across all provider types. If a
@@ -266,10 +291,17 @@ export const SECRET_CONFIG_KEYS = new Set(['token', 'clientSecret', 'password'])
  *   - `host`     1Password Connect, Infisical
  *   - `serverUrl` Bitwarden Secrets Manager (EU / self-hosted)
  *   - `vaultUri` Azure Key Vault
+ *   - `apiBaseUrl` Vaultwarden (the Vaultwarden-API service URL)
  * (KeePass `databasePath` is a LOCAL file, not a network destination, so it's out of scope.
  * When you add a provider with an overridable server URL, add its field here.)
  */
-export const PROVIDER_DESTINATION_KEYS = ['host', 'address', 'serverUrl', 'vaultUri'] as const;
+export const PROVIDER_DESTINATION_KEYS = [
+	'host',
+	'address',
+	'serverUrl',
+	'vaultUri',
+	'apiBaseUrl'
+] as const;
 
 /**
  * True when the incoming override changes the connection destination (host/address) from the

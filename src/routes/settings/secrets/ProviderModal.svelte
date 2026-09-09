@@ -31,6 +31,7 @@
 		{ value: 'proton', label: 'Proton Pass' },
 		{ value: 'azure-kv', label: 'Azure Key Vault' },
 		{ value: 'keepass', label: 'KeePassXC' },
+		{ value: 'vaultwarden', label: 'Vaultwarden' },
 	];
 
 	// Config fields per provider type, matching the config shapes in
@@ -84,6 +85,15 @@
 			{ key: 'password', label: 'Master password', type: 'password', required: false, requiredWhen: (c) => !(c.keyFilePath ?? '').trim(), placeholder: 'database master password', hint: 'The database master password. Optional if a key file is provided instead (or in addition).' },
 			{ key: 'keyFilePath', label: 'Key file path', type: 'text', required: false, placeholder: '/secrets/db.keyx', hint: 'Optional absolute path to the database key file, as seen inside the container.' },
 		],
+		vaultwarden: [
+			{ key: 'apiBaseUrl', label: 'API base URL', type: 'text', required: true, placeholder: 'https://vwapi.internal.example.com', hint: 'URL of the Vaultwarden-API service (not your Vaultwarden instance).' },
+			{ key: 'apiKey', label: 'API key', type: 'password', required: true, placeholder: 'Vaultwarden-API key', hint: 'A Vaultwarden-API key, ideally collection-scoped and dedicated to Dockhand. Sent as the Authorization header.' },
+			{ key: 'organizationName', label: 'Organization filter', type: 'text', required: false, placeholder: 'Infra', hint: 'Optional. Restrict every lookup to this organization.' },
+			{ key: 'collectionName', label: 'Collection filter', type: 'text', required: false, placeholder: 'prod', hint: 'Optional. Restrict every lookup to this collection. A bulk-pull selector overrides this per stack.' },
+			{ key: 'folderName', label: 'Folder filter', type: 'text', required: false, placeholder: 'dockhand', hint: 'Optional. Restrict every lookup to this folder.' },
+			{ key: 'insecureSkipTlsVerify', label: 'Skip TLS verification', type: 'text', required: false, placeholder: 'false', hint: 'Set to "true" only for an internal CA or testing. Any other value keeps verification on.' },
+			{ key: 'timeoutSeconds', label: 'Timeout (seconds)', type: 'text', required: false, placeholder: '10', hint: 'Per-request timeout. Defaults to 10.' },
+		],
 	};
 
 	export function providerTypeLabel(type: string): string {
@@ -130,6 +140,11 @@
 			label: 'Group',
 			placeholder: 'e.g. dockhand (leave blank for inline refs only)',
 			hint: 'Bulk-load every entry under this group as ENV=<entry password>. Leave blank to inject only inline keepass:// references.'
+		},
+		'vaultwarden': {
+			label: 'Collection',
+			placeholder: 'collection name, or * for all',
+			hint: 'Bulk-load every item in this collection (overrides the provider collection filter). Use * or all to pull everything the API key can see. Leave blank to inject only inline vw:// references.'
 		}
 	};
 </script>
