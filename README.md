@@ -14,6 +14,33 @@
 
 ---
 
+## 🍴 Cybercinch fork
+
+This is a **private fork of [`Finsys/dockhand`](https://github.com/Finsys/dockhand)**
+maintained by Cybercinch Solutions for internal infrastructure use (BSL 1.1 —
+personal / internal-business use only).
+
+- **`main`** tracks upstream unchanged, for clean syncing.
+- **`cybercinch`** (this branch, the default) carries our changes on top of `main`.
+
+### Differences from upstream
+
+| Area | Change |
+|------|--------|
+| `src/lib/server/secretproviders/vaultwarden.ts` (new) | Adds a **`vaultwarden` secret provider** — resolves stack secrets from a self-hosted Vaultwarden via the companion [Vaultwarden-API](https://github.com/cybercinch/Vaultwarden-API) service (plain authenticated HTTPS; no `bws` binary, no Bitwarden Secrets Manager). Supports `vw://NAME` inline references and bulk pull (selector = collection name). |
+| `src/lib/server/secretproviders/index.ts`, `shared.ts` | Registers the provider; adds `VaultwardenConfig` to the shared unions, `apiKey` to `SECRET_CONFIG_KEYS`, `apiBaseUrl` to `PROVIDER_DESTINATION_KEYS`. |
+| `src/routes/settings/secrets/ProviderModal.svelte` | Adds the Vaultwarden option, its config fields, and its bulk-selector field. |
+| `tests/secret-provider-vaultwarden.test.ts` (new) | Unit tests for the provider. |
+| `docs/secrets-provider-vaultwarden.md` (new) | Manual page for the provider. |
+| `docs/vaultwarden-provider-spec.md` (new) | Design spec + upstream source findings. |
+
+No database migration is required (`secret_providers.type` is free text).
+
+See [`docs/vaultwarden-provider-spec.md`](docs/vaultwarden-provider-spec.md) for
+the full design and milestone status.
+
+---
+
 ## About
 
 Dockhand is a modern, efficient Docker management application providing real-time container management, Compose stack orchestration, and multi-environment support.  All in a lightweight, secure and privacy-focused package.
