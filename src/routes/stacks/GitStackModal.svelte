@@ -26,6 +26,9 @@
 	import { appendEnvParam } from '$lib/stores/environment';
 	import { persistStackIcon } from '$lib/utils/stack-icon';
 	import { type EnvVar, type ValidationResult } from '$lib/components/StackEnvVarsEditor.svelte';
+	import { SELECTOR_VARS } from '$lib/utils/bulk-selector';
+	import { resolvedRefVarNames } from '$lib/utils/invault-markers';
+	import { refSchemeFor, stripQuotes } from '$lib/utils/provider-ref';
 	import { toast } from 'svelte-sonner';
 	import { focusFirstInput } from '$lib/utils';
 	import { readJobResponse } from '$lib/utils/sse-fetch';
@@ -254,6 +257,90 @@
 	let loadingFileVars = $state(false);
 	let existingSecretKeys = $state<Set<string>>(new Set());
 	let populatingEnvVars = $state(false);
+
+	// Live provider probe (mirrors StackModal). Drives the env editor's per-row
+	// "found / checking / not found" badge for vw:// (etc.) reference values.
+	// TODO: dedupe with StackModal.runProbe into a shared helper.
+	let providerKeySet = $state<Set<string>>(new Set());
+	let probeError = $state<string | null>(null);
+	let probing = $state(false);
+	let probeSeq = 0;
+	let probeTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function inlineRefPairs(): { varName: string; ref: string }[] {
+		const type = secretProviders.find((p) => p.id === formSecretProviderId)?.type ?? null;
+		const scheme = refSchemeFor(type);
+		if (!scheme) return [];
+		const pairs: { varName: string; ref: string }[] = [];
+		for (const v of envVars) {
+			const key = v.key.trim();
+			const val = stripQuotes(v.value ?? '');
+			if (key && val.startsWith(scheme)) pairs.push({ varName: key, ref: val });
+		}
+		return pairs;
+	}
+
+	async function runProbe() {
+		probing = true;
+		if (formSecretProviderId === null) {
+			providerKeySet = new Set();
+			probeError = null;
+			probing = false;
+			return;
+		}
+		let selector: string | undefined;
+		for (const name of SELECTOR_VARS) {
+			const hit = envVars.find((v) => v.key.trim() === name);
+			if (hit && hit.value.trim()) { selector = hit.value.trim(); break; }
+		}
+		const refPairs = inlineRefPairs();
+		if (!selector && refPairs.length === 0) {
+			providerKeySet = new Set();
+			probeError = null;
+			probing = false;
+			return;
+		}
+		const seq = ++probeSeq;
+		try {
+			const res = await fetch(`/api/secret-providers/${formSecretProviderId}/probe`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ selector, refs: refPairs.map((p) => p.ref) })
+			});
+			if (seq !== probeSeq) return;
+			const data = await res.json();
+			if (!res.ok || !data.ok) {
+				providerKeySet = new Set();
+				probeError = data.error || `Provider check failed (${res.status})`;
+			} else {
+				providerKeySet = new Set([
+					...(data.bulkKeys ?? []),
+					...resolvedRefVarNames(refPairs, data.resolvedRefs ?? [])
+				]);
+				probeError = null;
+			}
+		} catch (e) {
+			if (seq !== probeSeq) return;
+			providerKeySet = new Set();
+			probeError = e instanceof Error ? e.message : 'Provider check failed';
+		}
+		probing = false;
+	}
+
+	// Debounced probe on any env-var or bound-provider change.
+	$effect(() => {
+		// Read every dep so the effect re-runs on any change.
+		void envVars.map((v) => `${v.key}=${v.value}`).join('\n');
+		void formSecretProviderId;
+		void secretProviders.length;
+		if (!open) return;
+		if (formSecretProviderId !== null) probing = true;
+		if (probeTimer) clearTimeout(probeTimer);
+		probeTimer = setTimeout(runProbe, 700);
+		return () => {
+			if (probeTimer) clearTimeout(probeTimer);
+		};
+	});
 
 	// Resizable split panel state
 	let splitRatio = $state(60); // percentage for form panel
@@ -1483,6 +1570,9 @@
 					providerType={secretProviders.find((p) => p.id === formSecretProviderId)?.type ?? null}
 					providerName={secretProviders.find((p) => p.id === formSecretProviderId)?.name ?? null}
 					providerBound={formSecretProviderId != null && secretProviders.some((p) => p.id === formSecretProviderId)}
+					{providerKeySet}
+					{probeError}
+					{probing}
 					placeholder={{ key: 'MY_VAR', value: 'value' }}
 					infoText="Override variables from your repository env files. Non-secrets are saved to <code class='bg-muted px-1 rounded'>.env.dockhand</code> in the stack directory. Secrets are stored in the database and injected via shell environment at deploy time.<br/><br/>Variables are available for <strong>compose file interpolation</strong> using <code class='bg-muted px-1 rounded'>${'{VAR_NAME}'}</code> syntax. They are not automatically injected into containers — use <code class='bg-muted px-1 rounded'>environment:</code> or reference <code class='bg-muted px-1 rounded'>.env.dockhand</code> in <code class='bg-muted px-1 rounded'>env_file:</code> to pass them through."
 					existingSecretKeys={gitStack !== null ? existingSecretKeys : new Set()}

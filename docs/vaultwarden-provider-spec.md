@@ -227,8 +227,14 @@ for Dockhand.
    not re-synced yet). The probe endpoint (`.../[id]/probe`) now runs its bulk
    and inline-ref checks **independently** — a mistyped bulk selector no longer
    suppresses the inline-ref result. Deploy-time resolution was always
-   scheme-agnostic (server `provider.isReference`). **All worth upstreaming as a
-   standalone PR.**
+   scheme-agnostic (server `provider.isReference`).
+   ⚠️ **`GitStackModal.svelte` had NO provider probe at all** (only the non-git
+   `StackModal.svelte` did) — so for a git-backed stack the badge showed amber
+   for every ref regardless, and there was never a pre-deploy "IN VAULT" marker.
+   This fork copies the probe into `GitStackModal` (marked TODO: dedupe into a
+   shared helper). Verified: git-stack deploy resolves `vw://` refs fine
+   (`resolved 1/1` in the deploy log); only the editor feedback was missing.
+   **All worth upstreaming as a standalone PR.**
 6. **Encryption at rest**: `secret_providers.config` is an encrypted JSON blob;
    `createSecretProvider` / db layer handle it transparently. `type` is free
    `text` (**not an enum → no Drizzle migration**). `redactProviderConfig` strips
