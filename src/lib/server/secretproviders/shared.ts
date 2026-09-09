@@ -241,12 +241,12 @@ export interface KeePassConfig {
  * Vaultwarden (via the companion Vaultwarden-API service): a base URL for that
  * service and an API key sent as the `Authorization` header. Optional org /
  * collection / folder name filters are passed as query params on every call
- * (belt-and-braces with a server-scoped key). `insecureSkipTlsVerify` is the
- * string `"true"` to disable TLS certificate verification (internal CA only);
- * `timeoutSeconds` overrides the 10s per-request timeout. Bulk pull is bound to
- * a stack via `DOCKHAND_SECRET_SELECTOR`, whose value overrides `collectionName`
- * (`*` / `all` = no extra filter); inline `vw://NAME` references resolve one
- * item.
+ * (belt-and-braces with a server-scoped key). `timeoutSeconds` overrides the 10s
+ * per-request timeout. Bulk pull is bound to a stack via
+ * `DOCKHAND_SECRET_SELECTOR`, whose value overrides `collectionName` (`*` / `all`
+ * = no extra filter); inline `vw://NAME` references resolve one item. TLS is
+ * always verified - the Vaultwarden-API service must present a trusted
+ * certificate.
  */
 export interface VaultwardenConfig {
 	apiBaseUrl: string;
@@ -254,8 +254,6 @@ export interface VaultwardenConfig {
 	organizationName?: string;
 	collectionName?: string;
 	folderName?: string;
-	/** `"true"` (case-insensitive) disables TLS certificate verification. */
-	insecureSkipTlsVerify?: string;
 	/** Per-request timeout in seconds (string, from the form). Default 10. */
 	timeoutSeconds?: string;
 }

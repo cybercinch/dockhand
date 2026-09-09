@@ -18,7 +18,7 @@
  * the `Authorization` header; it is never logged.
  */
 
-import { request, Agent, type Dispatcher } from 'undici';
+import { request } from 'undici';
 import type { SecretProvider, TestConnectionResult, VaultwardenConfig } from './shared';
 import { assertSafeProviderHost, isJsonResponse, stripSurroundingQuotes } from './shared';
 
@@ -31,14 +31,6 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 const VALUE_FETCH_CONCURRENCY = 5;
 /** Selector values that mean "do not add a collection filter". */
 const WILDCARD_SELECTORS = new Set(['*', 'all']);
-
-/** Shared insecure dispatcher, created once, only used when the operator opts out of TLS verification. */
-let insecureAgent: Agent | undefined;
-function dispatcherFor(config: VaultwardenConfig): Dispatcher | undefined {
-	if (String(config.insecureSkipTlsVerify ?? '').trim().toLowerCase() !== 'true') return undefined;
-	insecureAgent ??= new Agent({ connect: { rejectUnauthorized: false } });
-	return insecureAgent;
-}
 
 /** Milliseconds for the per-request timeout (config is seconds, as a string). */
 function timeoutMs(config: VaultwardenConfig): number {
@@ -79,7 +71,6 @@ async function vwGet(config: VaultwardenConfig, path: string): Promise<VwRespons
 	const { statusCode, body } = await request(`${baseUrl(config)}${path}`, {
 		method: 'GET',
 		headers: { authorization: config.apiKey },
-		dispatcher: dispatcherFor(config),
 		signal: AbortSignal.timeout(timeoutMs(config))
 	});
 	const text = await body.text().catch(() => '');
@@ -107,7 +98,7 @@ function transportMessage(e: unknown, context: string): string {
 	const msg = e instanceof Error ? e.message : String(e);
 	if (e instanceof Error && e.name === 'TimeoutError') return `${context}: request timed out`;
 	if (/certificate|self-signed|altname|CERT_|TLS|SSL/i.test(msg)) {
-		return `${context}: TLS certificate verification failed - set "Skip TLS verification" for an internal CA`;
+		return `${context}: TLS certificate verification failed - the Vaultwarden-API service must present a trusted certificate`;
 	}
 	if (/ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ECONNRESET|fetch failed/i.test(msg)) {
 		return `${context}: Vaultwarden-API is unreachable`;

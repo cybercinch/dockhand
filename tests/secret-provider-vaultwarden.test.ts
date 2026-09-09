@@ -16,9 +16,6 @@ function route(key: string, statusCode: number, body: unknown) {
 }
 
 mock.module('undici', () => ({
-	Agent: class MockAgent {
-		constructor(_opts?: unknown) {}
-	},
 	async request(url: string, opts: { method?: string; headers?: Record<string, string> }) {
 		const u = new URL(url);
 		const method = opts.method ?? 'GET';

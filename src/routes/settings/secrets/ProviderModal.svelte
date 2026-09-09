@@ -91,7 +91,6 @@
 			{ key: 'organizationName', label: 'Organization filter', type: 'text', required: false, placeholder: 'Infra', hint: 'Optional. Restrict every lookup to this organization.' },
 			{ key: 'collectionName', label: 'Collection filter', type: 'text', required: false, placeholder: 'prod', hint: 'Optional. Restrict every lookup to this collection. A bulk-pull selector overrides this per stack.' },
 			{ key: 'folderName', label: 'Folder filter', type: 'text', required: false, placeholder: 'dockhand', hint: 'Optional. Restrict every lookup to this folder.' },
-			{ key: 'insecureSkipTlsVerify', label: 'Skip TLS verification', type: 'text', required: false, placeholder: 'false', hint: 'Set to "true" only for an internal CA or testing. Any other value keeps verification on.' },
 			{ key: 'timeoutSeconds', label: 'Timeout (seconds)', type: 'text', required: false, placeholder: '10', hint: 'Per-request timeout. Defaults to 10.' },
 		],
 	};

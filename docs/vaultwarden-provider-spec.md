@@ -217,9 +217,8 @@ for Dockhand.
    `SECRET_CONFIG_KEYS` before the config is sent to the edit form.
 7. **Outbound HTTP**: no shared client. Providers call `undici.request()`
    directly; `assertSafeProviderHost(url, label)` (SSRF guard) before the first
-   request; `sanitizeSelectorPath` for user path segments. TLS-verify-off needs a
-   custom `undici.Agent({ connect: { rejectUnauthorized: false } })` dispatcher
-   (no existing provider does this).
+   request; `sanitizeSelectorPath` for user path segments. TLS is always
+   verified — no opt-out (proper certificates only).
 
 **Open questions resolved:** (1) reference key = **scheme**, not instance name,
 `vw://NAME`. (2) no `getMany` — `resolveBulk` is the bulk hook. (3) free string,
@@ -236,8 +235,10 @@ bulk selector doubles as a collection-name override.
 | Organization filter | `organizationName` | no | `?organization_name=` on every call |
 | Collection filter | `collectionName` | no | `?collection_name=` on every call |
 | Folder filter | `folderName` | no | `?folder_name=` on every call |
-| Skip TLS verification | `insecureSkipTlsVerify` | no | text field; `true` (case-insensitive) disables cert verification via a dedicated `undici.Agent`. Any other value = verify. Internal CA / testing only. |
 | Timeout (s) | `timeoutSeconds` | no | default `10`; `AbortSignal.timeout` on every request |
+
+TLS is always verified (no opt-out field) — the Vaultwarden-API service must
+present a certificate the Dockhand container trusts.
 
 (`Name` is the provider-instance label handled by Dockhand's standard form, not a
 config key.) No client binary. No `DOCKHAND_*_PATH`.
@@ -284,7 +285,7 @@ config key.) No client binary. No `DOCKHAND_*_PATH`.
 - Never log secret values or full `Authorization` headers. Log `name`,
   `generation`, counts, HTTP status only.
 - Reuse Dockhand's encrypted-config storage for the API key.
-- Respect "Verify TLS"; default true.
+- TLS is always verified; the API service must present a trusted certificate.
 - Values live in memory on the Dockhand node only, injected at deploy — same as
   every other provider; don't persist resolved values.
 

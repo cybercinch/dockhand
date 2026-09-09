@@ -28,8 +28,12 @@ Dockhand  ──HTTPS──▶  Vaultwarden-API  ──/api/sync──▶  Vault
 | Organization filter | no | Restrict every lookup to this organization (by name). |
 | Collection filter | no | Restrict every lookup to this collection (by name). |
 | Folder filter | no | Restrict every lookup to this folder (by name). |
-| Skip TLS verification | no | Set to `true` only for an internal CA or testing. Any other value keeps verification on. |
 | Timeout (seconds) | no | Per-request timeout. Default `10`. |
+
+TLS is always verified — the Vaultwarden-API service must present a certificate
+trusted by the Dockhand container. Use a real certificate (public CA, or an
+internal CA added to the container's trust store); there is no verification
+opt-out.
 
 Use **Test connection** to verify: it calls `GET /health` then
 `GET /secrets` with your key and reports how many secrets are visible.
