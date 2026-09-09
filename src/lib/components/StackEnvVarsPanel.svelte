@@ -115,6 +115,14 @@
 		providerRefStatuses(variables, providerType, providerKeySet, { probing })
 	);
 
+	// The "injected at last deploy" banner only needs to surface keys that are
+	// otherwise INVISIBLE - i.e. bulk-pulled names with no env-var row. A key that
+	// is also an env-var row (an inline vw:// ref) already shows its own status
+	// badge, so listing it again in the banner is just noise.
+	const bannerInjectedKeys = $derived(
+		injectedSecretKeys.filter((k) => !variables.some((v) => v.key.trim() === k))
+	);
+
 	// Generate text representation from variables (non-secrets only)
 	// This is used for text view display
 	const generatedRawContent = $derived.by(() => {
@@ -541,12 +549,12 @@
 			</div>
 		{/if}
 		<!-- Provider-injected secrets loaded at the last deploy -->
-		{#if injectedSecretKeys.length > 0 && providerBound}
+		{#if bannerInjectedKeys.length > 0 && providerBound}
 			<div class="flex items-start gap-2 px-2.5 py-2 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50">
 				<Check class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
 				<div class="text-xs text-emerald-700 dark:text-emerald-300 min-w-0">
 					<div class="flex items-center gap-1.5 flex-wrap">
-						<span class="font-semibold">{injectedSecretKeys.length} secret{injectedSecretKeys.length === 1 ? '' : 's'} loaded</span>
+						<span class="font-semibold">{bannerInjectedKeys.length} secret{bannerInjectedKeys.length === 1 ? '' : 's'} loaded</span>
 						<span class="text-emerald-600/70 dark:text-emerald-400/70">from</span>
 						{#if providerType}
 							{@const ProviderIcon = getProviderIcon(providerType)}
@@ -561,7 +569,7 @@
 					</div>
 					<p class="text-emerald-600 dark:text-emerald-400 mt-0.5">Injected into the container at last deploy &mdash; never written to <code>.env</code>.</p>
 					<div class="flex flex-wrap gap-1.5 mt-1.5">
-						{#each injectedSecretKeys as key}
+						{#each bannerInjectedKeys as key}
 							<span class="inline-flex items-center gap-1 font-mono text-2xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-800/40 border border-emerald-300 dark:border-emerald-700">
 								<KeyRound class="w-2.5 h-2.5" />{key}
 							</span>
@@ -569,17 +577,17 @@
 					</div>
 				</div>
 			</div>
-		{:else if injectedSecretKeys.length > 0 && !providerBound}
+		{:else if bannerInjectedKeys.length > 0 && !providerBound}
 			<!-- Historical: keys were injected on a previous deploy but no provider is bound now (#1522). -->
 			<div class="flex items-start gap-2 px-2.5 py-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
 				<AlertTriangle class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
 				<div class="text-xs text-amber-700 dark:text-amber-300 min-w-0">
 					<div class="font-semibold">No secret provider is bound</div>
 					<p class="text-amber-600 dark:text-amber-400 mt-0.5">
-						These {injectedSecretKeys.length} secret{injectedSecretKeys.length === 1 ? ' was' : 's were'} injected on the last deploy but the stack is no longer bound to a provider. The next deploy will drop {injectedSecretKeys.length === 1 ? 'it' : 'them'}. Reselect a provider to keep them.
+						These {bannerInjectedKeys.length} secret{bannerInjectedKeys.length === 1 ? ' was' : 's were'} injected on the last deploy but the stack is no longer bound to a provider. The next deploy will drop {bannerInjectedKeys.length === 1 ? 'it' : 'them'}. Reselect a provider to keep them.
 					</p>
 					<div class="flex flex-wrap gap-1.5 mt-1.5">
-						{#each injectedSecretKeys as key}
+						{#each bannerInjectedKeys as key}
 							<span class="inline-flex items-center gap-1 font-mono text-2xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/40 border border-amber-300 dark:border-amber-700 line-through decoration-amber-500/60">
 								<KeyRound class="w-2.5 h-2.5" />{key}
 							</span>
