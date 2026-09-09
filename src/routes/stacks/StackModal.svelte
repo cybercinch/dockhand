@@ -10,6 +10,7 @@
 	import SecretProviderPicker from '$lib/components/SecretProviderPicker.svelte';
 	import { SELECTOR_VARS } from '$lib/utils/bulk-selector';
 	import { classifyMarker, resolvedRefVarNames } from '$lib/utils/invault-markers';
+	import { refSchemeFor, stripQuotes } from '$lib/utils/provider-ref';
 	import { applyQuickFix, findingKey } from '$lib/utils/compose-quick-fix';
 	import { Layers, Save, Play, Code, GitGraph, GitBranch, GitCommitHorizontal, Github, Loader2, AlertCircle, X, Sun, Moon, TriangleAlert, GripVertical, GripHorizontal, FolderOpen, Copy, Check, XCircle, MapPin, ArrowRight, ArrowDown, Info, Box, FolderSync, Archive, ListChecks, History, ChevronDown } from 'lucide-svelte';
 	import ComposeValidatePanel from './ComposeValidatePanel.svelte';
@@ -193,6 +194,10 @@
 	let providerKeySet = $state<Set<string>>(new Set());
 	let probeError = $state<string | null>(null);
 	let probeSeq = 0;
+	// True from the moment env-var edits schedule a probe until that probe
+	// settles - drives the env editor's "checking…" badge so a valid ref does
+	// not flash amber before its green result lands.
+	let probing = $state(false);
 
 	// Environment variables state
 	let envVars = $state<EnvVar[]>([]);
@@ -1139,29 +1144,17 @@
 		}, 1000);
 	}
 
-	// Inline-reference URI scheme per provider type. Bulk-only backends (doppler,
-	// vault, infisical) have none. Keep in sync with each provider's isReference()
-	// in src/lib/server/secretproviders/*.ts.
-	const PROVIDER_REF_SCHEME: Record<string, string> = {
-		'op-service-account': 'op://',
-		'op-connect': 'op://',
-		'azure-kv': 'azurekv://',
-		proton: 'pass://',
-		keepass: 'keepass://',
-		vaultwarden: 'vw://'
-	};
-
 	// Inline provider references (op://, vw://, ...) in the current env vars, mapped
 	// var -> ref, so a resolved ref (the provider returns ref STRINGS) maps back to
 	// its var name. Only the BOUND provider's scheme is collected; surrounding
 	// quotes are stripped for detection, matching the server's isReference().
 	function inlineRefPairs(): { varName: string; ref: string }[] {
-		const scheme = selectedProviderType ? PROVIDER_REF_SCHEME[selectedProviderType] : undefined;
+		const scheme = refSchemeFor(selectedProviderType);
 		if (!scheme) return [];
 		const pairs: { varName: string; ref: string }[] = [];
 		for (const v of envVars) {
 			const key = v.key.trim();
-			const val = (v.value ?? '').trim().replace(/^(["'])(.*)\1$/s, '$2');
+			const val = stripQuotes(v.value ?? '');
 			if (key && val.startsWith(scheme)) pairs.push({ varName: key, ref: val });
 		}
 		return pairs;
@@ -1172,9 +1165,11 @@
 	// failure the key set is emptied and probeError is set (-> everything MISSING,
 	// never a false green). Guarded by probeSeq to drop stale responses.
 	async function runProbe() {
+		probing = true;
 		if (formSecretProviderId === null) {
 			providerKeySet = new Set();
 			probeError = null;
+			probing = false;
 			return;
 		}
 		const selector = (() => {
@@ -1188,6 +1183,7 @@
 		if (!selector && refPairs.length === 0) {
 			providerKeySet = new Set();
 			probeError = null;
+			probing = false;
 			updateEditorMarkers();
 			return;
 		}
@@ -1216,6 +1212,7 @@
 			providerKeySet = new Set();
 			probeError = e instanceof Error ? e.message : 'Provider check failed';
 		}
+		probing = false;
 		updateEditorMarkers();
 	}
 
@@ -2069,6 +2066,10 @@
 		const vars = envVars;
 		if (!open || !envValidation) return;
 
+		// A probe is pending -> show "checking…" on ref rows straight away, don't
+		// wait out the debounce showing a stale badge.
+		if (formSecretProviderId !== null) probing = true;
+
 		// Debounce to avoid too many API calls while typing
 		const timeout = setTimeout(() => {
 			validateEnvVars();
@@ -2593,6 +2594,7 @@
 									providerBound={selectedProviderBound}
 									{probeError}
 									{providerKeySet}
+									{probing}
 									{readonly}
 									onchange={() => { markDirty(); debouncedValidate(); }}
 									theme={editorTheme}

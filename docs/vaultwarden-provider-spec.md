@@ -212,13 +212,23 @@ for Dockhand.
 5. **Reference syntax**: there is **no `${provider:name}` parser**. Each provider
    owns a URI scheme (`op://`, `azurekv://`, `pass://`, `keepass://`).
    → this fork uses **`vw://SECRET_NAME`**.
-   ⚠️ The client-side pre-deploy probe in `StackModal.svelte::inlineRefPairs()`
-   was **hardcoded to `op://`** — it never probed any other scheme, so the green
-   "IN VAULT" marker only ever worked for 1Password. This fork generalises it to
-   a `PROVIDER_REF_SCHEME` map keyed by the bound provider's type (op / azurekv /
-   pass / keepass / vw). Deploy-time resolution was always scheme-agnostic
-   (server-side `provider.isReference`); only the marker was affected. **Worth
-   upstreaming on its own.**
+   ⚠️ Client-side ref handling was **hardcoded to `op://`** in three places, so
+   the pre-deploy feedback only ever worked for 1Password:
+   - `StackModal.svelte::inlineRefPairs()` — never probed a non-`op://` scheme
+   - `StackEnvVarsPanel.svelte::hasProviderReference` — placement hint
+   - and there was **no per-row indicator at all** for an inline-ref value in the
+     env editor (the "IN VAULT" marker only ever applied to compose `${VAR}`
+     tokens with no local value).
+   This fork adds `src/lib/utils/provider-ref.ts` (`PROVIDER_REF_SCHEME` map +
+   `providerRefStatuses()`), generalises the two hardcodes, and adds a per-row
+   badge in `StackEnvVarsEditor.svelte`: a live probe of the bound provider marks
+   each `vw://` (etc.) value **green** (found — resolves at deploy), **spinner**
+   (checking), or **amber** (not found — bad name / key permissions / provider
+   not re-synced yet). The probe endpoint (`.../[id]/probe`) now runs its bulk
+   and inline-ref checks **independently** — a mistyped bulk selector no longer
+   suppresses the inline-ref result. Deploy-time resolution was always
+   scheme-agnostic (server `provider.isReference`). **All worth upstreaming as a
+   standalone PR.**
 6. **Encryption at rest**: `secret_providers.config` is an encrypted JSON blob;
    `createSecretProvider` / db layer handle it transparently. `type` is free
    `text` (**not an enum → no Drizzle migration**). `redactProviderConfig` strips

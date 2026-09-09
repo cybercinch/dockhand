@@ -2,7 +2,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Plus, Trash2, Key, AlertCircle, CheckCircle2, FileText, Pencil, CircleDot, Undo2 } from 'lucide-svelte';
+	import { Plus, Trash2, Key, AlertCircle, CheckCircle2, FileText, Pencil, CircleDot, Undo2, KeyRound, Loader2 } from 'lucide-svelte';
+	import type { ProviderRefStatus } from '$lib/utils/provider-ref';
 
 	export interface EnvVar {
 		key: string;
@@ -28,6 +29,12 @@
 		fileValues?: Record<string, string>; // Original file values for revert
 		placeholder?: { key: string; value: string };
 		existingSecretKeys?: Set<string>; // Keys of secrets loaded from DB (can't toggle visibility)
+		/** Per-var status of a value that is an inline provider reference (op:// / vw:// / ...). */
+		providerRefStatus?: Map<string, ProviderRefStatus>;
+		/** Name of the bound provider, for the ref-badge tooltip. */
+		providerName?: string | null;
+		/** Set when the live probe failed - the amber badge tooltip says why. */
+		probeError?: string | null;
 		onchange?: () => void;
 	}
 
@@ -40,6 +47,9 @@
 		fileValues = {},
 		placeholder = { key: 'VARIABLE_NAME', value: 'value' },
 		existingSecretKeys = new Set<string>(),
+		providerRefStatus = new Map<string, ProviderRefStatus>(),
+		providerName = null,
+		probeError = null,
 		onchange
 	}: Props = $props();
 
@@ -112,6 +122,7 @@
 			{@const isVarOptional = isOptional(variable.key)}
 			{@const isVarMissing = isMissing(variable.key)}
 			{@const isVarUnused = isUnused(variable.key)}
+			{@const refStatus = providerRefStatus.get(variable.key.trim())}
 			<div class="flex gap-2 items-center">
 				<!-- Source indicator (for git stacks) - always reserve space if showSource -->
 				{#if showSource}
@@ -198,8 +209,36 @@
 						type={variable.isSecret ? 'password' : 'text'}
 						disabled={readonly}
 						oninput={() => onchange?.()}
-						class="h-9 font-mono text-xs"
+						class="h-9 font-mono text-xs {refStatus ? 'pr-8' : ''}"
 					/>
+					{#if refStatus}
+						<div class="absolute right-2 top-1/2 -translate-y-1/2">
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#if refStatus === 'resolved'}
+										<KeyRound class="w-4 h-4 text-emerald-500" />
+									{:else if refStatus === 'checking'}
+										<Loader2 class="w-4 h-4 text-muted-foreground animate-spin" />
+									{:else}
+										<AlertCircle class="w-4 h-4 text-amber-500" />
+									{/if}
+								</Tooltip.Trigger>
+								<Tooltip.Content side="bottom">
+									<p class="max-w-[16rem]">
+										{#if refStatus === 'resolved'}
+											Found in {providerName ?? 'the secret provider'} &mdash; resolved at deploy, never written to <code>.env</code>.
+										{:else if refStatus === 'checking'}
+											Checking {providerName ?? 'the secret provider'}&hellip;
+										{:else if probeError}
+											Couldn't check {providerName ?? 'the secret provider'}: {probeError}
+										{:else}
+											Not found in {providerName ?? 'the secret provider'} yet &mdash; check the item name and the API key's permissions, or wait for it to re-sync.
+										{/if}
+									</p>
+								</Tooltip.Content>
+							</Tooltip.Root>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Secret Toggle Button -->

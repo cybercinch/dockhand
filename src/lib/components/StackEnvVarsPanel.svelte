@@ -9,6 +9,7 @@
 	import { getProviderIcon } from '$lib/components/provider-icons';
 	import { providerTypeLabel } from '../../routes/settings/secrets/ProviderModal.svelte';
 	import { effectiveMissing } from '$lib/utils/invault-markers';
+	import { ALL_PROVIDER_REF_SCHEMES, providerRefStatuses, stripQuotes } from '$lib/utils/provider-ref';
 
 	interface Props {
 		variables: EnvVar[]; // Bindable - ALL variables (secrets + non-secrets)
@@ -38,6 +39,8 @@
 		/** Key NAMES the live probe found in the bound provider (present RIGHT NOW).
 		 *  These are not "missing" even without a local value. Empty on probe failure. */
 		providerKeySet?: Set<string>;
+		/** A provider probe is in flight - ref rows show "checking…" instead of amber. */
+		probing?: boolean;
 		showInterpolationHint?: boolean;
 		theme?: 'light' | 'dark';
 		class?: string;
@@ -62,6 +65,7 @@
 		providerBound = true,
 		probeError = null,
 		providerKeySet = new Set<string>(),
+		probing = false,
 		showInterpolationHint = false,
 		theme = 'dark',
 		class: className = '',
@@ -96,14 +100,19 @@
 	// Count of secrets (for display in hint)
 	const secretCount = $derived(variables.filter(v => v.isSecret && v.key.trim()).length);
 
-	// True when any variable's VALUE is a provider reference (op:// / pass://).
-	// Such a reference is resolved only here (stack env), never when written
+	// True when any variable's VALUE is an inline provider reference (op:// / vw:// /
+	// ...). Such a reference is resolved only here (stack env), never when written
 	// straight into a compose environment: block - so we surface a hint.
 	const hasProviderReference = $derived(
-		variables.some((v) => {
-			const val = (v.value ?? '').trim();
-			return val.startsWith('op://') || val.startsWith('pass://');
-		})
+		variables.some((v) =>
+			ALL_PROVIDER_REF_SCHEMES.some((s) => stripQuotes(v.value ?? '').startsWith(s))
+		)
+	);
+
+	// Per-variable provider-ref status (resolved / checking / unresolved) for the
+	// editor's badge - only rows whose value is a ref for the BOUND provider.
+	const refStatuses = $derived(
+		providerRefStatuses(variables, providerType, providerKeySet, { probing })
 	);
 
 	// Generate text representation from variables (non-secrets only)
@@ -616,6 +625,9 @@
 				{fileValues}
 				{placeholder}
 				{existingSecretKeys}
+				providerRefStatus={refStatuses}
+				{providerName}
+				{probeError}
 				{onchange}
 			/>
 		{:else}
