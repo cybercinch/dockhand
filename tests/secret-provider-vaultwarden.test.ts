@@ -33,7 +33,7 @@ mock.module('undici', () => ({
 	}
 }));
 
-const { vaultwardenProvider, vaultwardenNameToEnvKey } = await import(
+const { vaultwardenProvider, vaultwardenNameToEnvKey, resetVaultwardenRefreshCooldown } = await import(
 	'../src/lib/server/secretproviders/vaultwarden.ts'
 );
 type VaultwardenConfig = import('../src/lib/server/secretproviders/shared.ts').VaultwardenConfig;
@@ -44,6 +44,7 @@ const config: VaultwardenConfig = { apiBaseUrl: BASE, apiKey: 'test-key' };
 beforeEach(() => {
 	routes = new Map();
 	requestLog = [];
+	resetVaultwardenRefreshCooldown();
 });
 
 describe('vaultwardenNameToEnvKey', () => {
@@ -130,18 +131,46 @@ describe('resolveSecretReferences', () => {
 		expect(requestLog.filter((r) => r.path.startsWith('/secret/')).length).toBe(2);
 	});
 
-	test('404 leaves the ref unresolved with a warning, not an error', async () => {
+	test('a 404 forces one POST /refresh and retries; still-missing -> warning, no error', async () => {
 		const warnings: string[] = [];
 		const origWarn = console.warn;
 		console.warn = (...a: unknown[]) => warnings.push(a.join(' '));
 		try {
 			route('GET /secret/GONE', 404, { error: 'not found' });
+			route('POST /refresh', 200, { status: 'ok' });
 			const out = await vaultwardenProvider.resolveSecretReferences(config, ['vw://GONE']);
 			expect(out.size).toBe(0);
+			expect(requestLog.filter((r) => r.path === '/refresh' && r.method === 'POST')).toHaveLength(1);
+			// GONE fetched once, then re-fetched after the refresh.
+			expect(requestLog.filter((r) => r.path === '/secret/GONE')).toHaveLength(2);
 			expect(warnings.some((w) => w.includes('vw://GONE') && w.includes('not found'))).toBe(true);
 		} finally {
 			console.warn = origWarn;
 		}
+	});
+
+	test('a recently-added item resolves after the forced re-sync', async () => {
+		let synced = false;
+		routes.set('POST /refresh', () => {
+			synced = true;
+			return { statusCode: 200, body: { status: 'ok' } };
+		});
+		routes.set('GET /secret/NEW', () =>
+			synced
+				? { statusCode: 200, body: { name: 'NEW', value: 's3cret' } }
+				: { statusCode: 404, body: { error: 'not found' } }
+		);
+		const out = await vaultwardenProvider.resolveSecretReferences(config, ['vw://NEW']);
+		expect(out.get('vw://NEW')).toBe('s3cret');
+	});
+
+	test('the refresh is rate-limited: a second miss does not re-refresh within the cooldown', async () => {
+		route('GET /secret/A', 404, { error: 'nope' });
+		route('GET /secret/B', 404, { error: 'nope' });
+		route('POST /refresh', 200, { status: 'ok' });
+		await vaultwardenProvider.resolveSecretReferences(config, ['vw://A']);
+		await vaultwardenProvider.resolveSecretReferences(config, ['vw://B']);
+		expect(requestLog.filter((r) => r.path === '/refresh')).toHaveLength(1);
 	});
 
 	test('401 propagates as a thrown error (fails the deploy)', async () => {
@@ -182,7 +211,23 @@ describe('resolveBulk', () => {
 
 	test('wildcard selector adds no collection filter', async () => {
 		route('GET /secrets', 200, { count: 0, secrets: [] });
+		route('POST /refresh', 200, { status: 'ok' });
 		expect(await vaultwardenProvider.resolveBulk(config, '*')).toEqual({});
+	});
+
+	test('an empty list forces a re-sync and re-lists once', async () => {
+		let synced = false;
+		routes.set('POST /refresh', () => {
+			synced = true;
+			return { statusCode: 200, body: { status: 'ok' } };
+		});
+		routes.set('GET /secrets?collection_name=prod', () => ({
+			statusCode: 200,
+			body: synced ? { count: 1, secrets: [{ name: 'API_TOKEN' }] } : { count: 0, secrets: [] }
+		}));
+		route('GET /secret/API_TOKEN', 200, { value: 'tok' });
+		expect(await vaultwardenProvider.resolveBulk(config, 'prod')).toEqual({ API_TOKEN: 'tok' });
+		expect(requestLog.filter((r) => r.path === '/refresh')).toHaveLength(1);
 	});
 
 	test('env-key collision is a hard error naming both items', async () => {

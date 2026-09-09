@@ -86,6 +86,45 @@ async function vwGet(config: VaultwardenConfig, path: string): Promise<VwRespons
 	return { statusCode, body: text };
 }
 
+// A lookup can miss simply because Vaultwarden-API has not re-synced since the
+// item was added (default SYNC_INTERVAL is 5m). On a miss we POST /refresh -
+// which re-syncs synchronously - and retry once. Rate-limited per API base URL
+// so a probe firing on every keystroke (or a genuine typo) cannot spam it.
+const REFRESH_COOLDOWN_MS = 60_000;
+const lastRefreshAt = new Map<string, number>();
+
+/** Clear the per-base-URL `POST /refresh` cooldown (provider config change / tests). */
+export function resetVaultwardenRefreshCooldown(): void {
+	lastRefreshAt.clear();
+}
+
+/** Force a Vaultwarden-API re-sync (`POST /refresh`), at most once per cooldown
+ *  per API base URL. Best-effort: returns true only when a refresh actually ran
+ *  and succeeded, so the caller knows a retry is worthwhile. Never throws. */
+async function refreshVault(config: VaultwardenConfig, logPrefix: string): Promise<boolean> {
+	const base = baseUrl(config);
+	const now = Date.now();
+	if (now - (lastRefreshAt.get(base) ?? 0) < REFRESH_COOLDOWN_MS) return false;
+	lastRefreshAt.set(base, now); // claim the slot before the request
+
+	try {
+		const { statusCode, body } = await request(`${base}/refresh`, {
+			method: 'POST',
+			headers: { authorization: authHeader(config) },
+			signal: AbortSignal.timeout(timeoutMs(config))
+		});
+		await body.text().catch(() => '');
+		if (statusCode >= 200 && statusCode < 300) {
+			console.log(`${logPrefix} a lookup missed - forced a Vaultwarden-API re-sync`);
+			return true;
+		}
+		console.warn(`${logPrefix} re-sync request returned HTTP ${statusCode}`);
+	} catch (e) {
+		console.warn(`${logPrefix} re-sync request failed: ${e instanceof Error ? e.message : e}`);
+	}
+	return false;
+}
+
 /** Maps a non-2xx status to an actionable, non-reflecting message. */
 function statusMessage(status: number, context: string): string {
 	switch (status) {
@@ -225,15 +264,35 @@ export const vaultwardenProvider: SecretProvider<VaultwardenConfig> = {
 
 		const names = [...new Set(refs.map(refName))];
 		const values = new Map<string, string>();
-		await mapConcurrent(names, VALUE_FETCH_CONCURRENCY, async (name) => {
-			// A missing item is left as a literal (matches every other provider); a
-			// transport / auth error propagates and fails the deploy.
+
+		const fetchInto = async (name: string, onMiss: () => void) => {
+			// A transport / auth error propagates and fails the deploy; a plain
+			// miss (404) is handled by the caller.
 			const value = await fetchSecretValue(config, name).catch((e: unknown) => {
 				throw new Error(`${logPrefix} ${e instanceof Error ? e.message : e}`);
 			});
 			if (value !== null) values.set(name, value);
-			else console.warn(`${logPrefix} Skipping vw://${name}: secret not found`);
-		});
+			else onMiss();
+		};
+
+		const missing: string[] = [];
+		await mapConcurrent(names, VALUE_FETCH_CONCURRENCY, (name) =>
+			fetchInto(name, () => missing.push(name))
+		);
+
+		// A miss may just mean the API has not re-synced since the item was added.
+		// Force one re-sync (rate-limited) and retry the misses before giving up.
+		if (missing.length > 0 && (await refreshVault(config, logPrefix))) {
+			const stillMissing: string[] = [];
+			await mapConcurrent(missing, VALUE_FETCH_CONCURRENCY, (name) =>
+				fetchInto(name, () => stillMissing.push(name))
+			);
+			missing.length = 0;
+			missing.push(...stillMissing);
+		}
+		for (const name of missing) {
+			console.warn(`${logPrefix} Skipping vw://${name}: secret not found`);
+		}
 
 		for (const ref of refs) {
 			const v = values.get(refName(ref));
@@ -248,7 +307,12 @@ export const vaultwardenProvider: SecretProvider<VaultwardenConfig> = {
 		const trimmed = (selector ?? '').trim();
 		const collectionOverride = trimmed && !WILDCARD_SELECTORS.has(trimmed.toLowerCase()) ? trimmed : undefined;
 
-		const names = await listSecretNames(config, collectionOverride);
+		let names = await listSecretNames(config, collectionOverride);
+		// An empty result often just means the API has not re-synced since the
+		// collection / items were created. Force one re-sync and re-list.
+		if (names.length === 0 && (await refreshVault(config, '[Vaultwarden]'))) {
+			names = await listSecretNames(config, collectionOverride);
+		}
 
 		// Map names -> env keys first so a collision fails before any value is fetched.
 		const keyToSource = new Map<string, string>();

@@ -278,7 +278,9 @@ config key.) No client binary. No `DOCKHAND_*_PATH`.
 
 **Bulk Pull** (`DOCKHAND_SECRET_SELECTOR` set on the stack)
 1. selector value overrides `collectionName` (`*` / `all` = no extra filter)
-2. `GET {base}/secrets?<filters>` → names
+2. `GET {base}/secrets?<filters>` → names. **Empty result → one `POST {base}/refresh`
+   (synchronous re-sync, rate-limited once/min per base URL) + re-list** — covers a
+   collection/items just created.
 3. fetch values: `GET {base}/secret/:name?<filters>` per item, concurrency 5
    (batch endpoint A3 is a later milestone)
 4. map each secret name → env var key (see B4); post-map collision = hard error
@@ -291,7 +293,8 @@ config key.) No client binary. No `DOCKHAND_*_PATH`.
 2. `resolveSecretReferences` resolves each unique name via
    `GET {base}/secret/:name?<filters>`, concurrency 5
 3. substitution happens before the daemon sees the file
-4. `404` → the ref is left as a literal + a warning (matches every other
+4. `404` → **one `POST {base}/refresh` + retry** (same rate limit) before giving
+   up; still missing → left as a literal + a warning (matches every other
    provider); `401/403/5xx` throw and fail the deploy — never with the value in
    the error
 

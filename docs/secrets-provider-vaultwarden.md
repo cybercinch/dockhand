@@ -51,8 +51,11 @@ At deploy time Dockhand replaces each `vw://…` value with the secret fetched f
 `GET /secret/:name`. The organization / collection / folder filters from the
 provider config are applied to every lookup.
 
-- A missing item (`404`) is left as the literal `vw://…` string and logged — the
-  deploy continues.
+- A missing item (`404`) triggers one `POST /refresh` (a synchronous Vaultwarden-API
+  re-sync, rate-limited to once/minute per API URL) and a retry — so a secret you
+  just added resolves without waiting out `SYNC_INTERVAL`. If it is still missing
+  after that, the literal `vw://…` string is left in place and logged; the deploy
+  continues.
 - An auth or transport error fails the deploy (the item name, never the value,
   appears in the error).
 
