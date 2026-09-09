@@ -72,11 +72,18 @@ describe('testConnection', () => {
 		expect(await vaultwardenProvider.testConnection(config)).toEqual({ ok: true });
 	});
 
-	test('sends the API key as the Authorization header', async () => {
+	test('sends the API key as a Bearer Authorization header', async () => {
 		route('GET /health', 200, { status: 'ok' });
 		route('GET /secrets', 200, { count: 0, secrets: [] });
 		await vaultwardenProvider.testConnection(config);
-		expect(requestLog.every((r) => r.auth === 'test-key')).toBe(true);
+		expect(requestLog.every((r) => r.auth === 'Bearer test-key')).toBe(true);
+	});
+
+	test('does not double the Bearer prefix if the key already has one', async () => {
+		route('GET /health', 200, { status: 'ok' });
+		route('GET /secrets', 200, { count: 0, secrets: [] });
+		await vaultwardenProvider.testConnection({ apiBaseUrl: BASE, apiKey: 'Bearer test-key' });
+		expect(requestLog.every((r) => r.auth === 'Bearer test-key')).toBe(true);
 	});
 
 	test('401 on the list -> auth failed message', async () => {

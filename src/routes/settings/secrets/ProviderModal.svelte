@@ -87,7 +87,7 @@
 		],
 		vaultwarden: [
 			{ key: 'apiBaseUrl', label: 'API base URL', type: 'text', required: true, placeholder: 'https://vwapi.internal.example.com', hint: 'URL of the Vaultwarden-API service (not your Vaultwarden instance).' },
-			{ key: 'apiKey', label: 'API key', type: 'password', required: true, placeholder: 'Vaultwarden-API key', hint: 'A Vaultwarden-API key, ideally collection-scoped and dedicated to Dockhand. Sent as the Authorization header.' },
+			{ key: 'apiKey', label: 'API key', type: 'password', required: true, placeholder: 'Vaultwarden-API key', hint: 'A Vaultwarden-API key, ideally collection-scoped and dedicated to Dockhand. Sent as an Authorization: Bearer header.' },
 			{ key: 'organizationName', label: 'Organization filter', type: 'text', required: false, placeholder: 'Infra', hint: 'Optional. Restrict every lookup to this organization.' },
 			{ key: 'collectionName', label: 'Collection filter', type: 'text', required: false, placeholder: 'prod', hint: 'Optional. Restrict every lookup to this collection. A bulk-pull selector overrides this per stack.' },
 			{ key: 'folderName', label: 'Folder filter', type: 'text', required: false, placeholder: 'dockhand', hint: 'Optional. Restrict every lookup to this folder.' },

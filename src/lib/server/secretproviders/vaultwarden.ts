@@ -61,6 +61,15 @@ function refName(ref: string): string {
 	return ref.slice(VW_REF_PREFIX.length);
 }
 
+/**
+ * The `Authorization` header value. Vaultwarden-API requires the `Bearer `
+ * scheme; tolerate an operator who pasted the key with the prefix already on it.
+ */
+function authHeader(config: VaultwardenConfig): string {
+	const key = config.apiKey.trim();
+	return /^bearer\s/i.test(key) ? key : `Bearer ${key}`;
+}
+
 interface VwResponse {
 	statusCode: number;
 	body: string;
@@ -70,7 +79,7 @@ interface VwResponse {
 async function vwGet(config: VaultwardenConfig, path: string): Promise<VwResponse> {
 	const { statusCode, body } = await request(`${baseUrl(config)}${path}`, {
 		method: 'GET',
-		headers: { authorization: config.apiKey },
+		headers: { authorization: authHeader(config) },
 		signal: AbortSignal.timeout(timeoutMs(config))
 	});
 	const text = await body.text().catch(() => '');

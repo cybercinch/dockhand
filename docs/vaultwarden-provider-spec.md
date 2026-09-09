@@ -73,9 +73,10 @@ Current surface (fork `cmd/api/main.go`):
 | GET | `/secret/:name` | API key | `{name, value}`; query filters `organization_{id,name}`, `collection_{id,name}`, `folder_{id,name}`; ambiguous match → 404; value = `extractSecret()` (password → custom field `value/secret/api_key/apikey/token` → notes → first field) |
 | POST | `/refresh` | API key | force re-sync |
 
-Auth: `Authorization` header, keys from `API_KEYS`, optionally **scoped** to
-organizations/collections/folders (`applyKeyScope`, fail-closed). IP whitelist +
-rate limiting in front. Keep all of this unchanged.
+Auth: `Authorization: Bearer <key>` (the middleware requires the `Bearer`
+scheme — `internal/auth/middleware.go`), keys from `API_KEYS`, optionally
+**scoped** to organizations/collections/folders (`applyKeyScope`, fail-closed).
+IP whitelist + rate limiting in front. Keep all of this unchanged.
 
 ### A1. `GET /secrets` — list (no values) — REQUIRED
 
@@ -84,7 +85,7 @@ Dockhand bulk-pull and "test connection" need enumeration.
 ```
 GET /secrets
 GET /secrets?organization_name=Infra&collection_name=prod
-Authorization: <api key>
+Authorization: Bearer <key>
 ```
 
 Response `200`:
@@ -134,7 +135,7 @@ Bulk pull of N secrets = N requests today. Optional batch:
 
 ```
 POST /secrets:batch
-Authorization: <api key>
+Authorization: Bearer <key>
 { "names": ["POSTGRES_PASSWORD", "REDIS_URL"], "filter": { "collection_name": "prod" } }
 ```
 
@@ -231,7 +232,7 @@ bulk selector doubles as a collection-name override.
 | Field (form label) | config key | Required | Notes |
 |--------------------|-----------|----------|-------|
 | API base URL | `apiBaseUrl` | yes | the Vaultwarden-**API** service, e.g. `https://vwapi.internal.example.com`. SSRF-guarded; in `PROVIDER_DESTINATION_KEYS`. |
-| API key | `apiKey` | yes | `type: password`, stored encrypted (in `SECRET_CONFIG_KEYS`); sent as `Authorization: <key>` |
+| API key | `apiKey` | yes | `type: password`, stored encrypted (in `SECRET_CONFIG_KEYS`); sent as `Authorization: Bearer <key>` (a pasted `Bearer ` prefix is not doubled) |
 | Organization filter | `organizationName` | no | `?organization_name=` on every call |
 | Collection filter | `collectionName` | no | `?collection_name=` on every call |
 | Folder filter | `folderName` | no | `?folder_name=` on every call |

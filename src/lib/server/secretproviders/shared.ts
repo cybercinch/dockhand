@@ -239,7 +239,7 @@ export interface KeePassConfig {
 
 /**
  * Vaultwarden (via the companion Vaultwarden-API service): a base URL for that
- * service and an API key sent as the `Authorization` header. Optional org /
+ * service and an API key sent as `Authorization: Bearer <key>`. Optional org /
  * collection / folder name filters are passed as query params on every call
  * (belt-and-braces with a server-scoped key). `timeoutSeconds` overrides the 10s
  * per-request timeout. Bulk pull is bound to a stack via

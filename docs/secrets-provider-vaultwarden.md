@@ -24,7 +24,7 @@ Dockhand  ──HTTPS──▶  Vaultwarden-API  ──/api/sync──▶  Vault
 |-------|----------|-------|
 | Name | yes | A label for this provider instance. |
 | API base URL | yes | The Vaultwarden-API service URL, e.g. `https://vwapi.internal.example.com` — **not** your Vaultwarden URL. |
-| API key | yes | Sent as the `Authorization` header. Stored encrypted. |
+| API key | yes | Sent as `Authorization: Bearer <key>`. Stored encrypted. A leading `Bearer ` you paste in is not doubled. |
 | Organization filter | no | Restrict every lookup to this organization (by name). |
 | Collection filter | no | Restrict every lookup to this collection (by name). |
 | Folder filter | no | Restrict every lookup to this folder (by name). |
@@ -82,7 +82,7 @@ in-vault probe shows which custom fields an item has.
 
 ## Security notes
 
-- The API key is stored encrypted and sent only as the `Authorization` header;
+- The API key is stored encrypted and sent only as the `Authorization: Bearer` header;
   it is never logged. Logs carry item names, counts and HTTP status only.
 - Resolved secret values live in memory on the Dockhand node and are injected at
   deploy time — never persisted.
