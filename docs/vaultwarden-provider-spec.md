@@ -322,6 +322,8 @@ config key.) No client binary. No `DOCKHAND_*_PATH`.
 - TLS is always verified; the API service must present a trusted certificate.
 - Values live in memory on the Dockhand node only, injected at deploy — same as
   every other provider; don't persist resolved values.
+- Every request sets `User-Agent: Dockhand/<__APP_VERSION__> (vaultwarden-secret-provider)`
+  for the Vaultwarden-API access log (undici sends none by default).
 
 ### B6. Files (real layout)
 

@@ -9,7 +9,12 @@ type Route = (req: { url: URL; headers: Record<string, string> }) => {
 	body: unknown;
 };
 let routes: Map<string, Route>;
-let requestLog: Array<{ method: string; path: string; auth: string | undefined }>;
+let requestLog: Array<{
+	method: string;
+	path: string;
+	auth: string | undefined;
+	ua: string | undefined;
+}>;
 
 function route(key: string, statusCode: number, body: unknown) {
 	routes.set(key, () => ({ statusCode, body }));
@@ -20,7 +25,12 @@ mock.module('undici', () => ({
 		const u = new URL(url);
 		const method = opts.method ?? 'GET';
 		const path = u.pathname + u.search;
-		requestLog.push({ method, path, auth: opts.headers?.authorization });
+		requestLog.push({
+			method,
+			path,
+			auth: opts.headers?.authorization,
+			ua: opts.headers?.['user-agent']
+		});
 		const handler = routes.get(`${method} ${path}`) ?? routes.get(`${method} ${u.pathname}`);
 		if (!handler) {
 			throw Object.assign(new Error(`fetch failed: no mock for ${method} ${path}`), {
@@ -73,11 +83,14 @@ describe('testConnection', () => {
 		expect(await vaultwardenProvider.testConnection(config)).toEqual({ ok: true });
 	});
 
-	test('sends the API key as a Bearer Authorization header', async () => {
+	test('sends the API key as a Bearer Authorization header + a Dockhand user-agent', async () => {
 		route('GET /health', 200, { status: 'ok' });
 		route('GET /secrets', 200, { count: 0, secrets: [] });
 		await vaultwardenProvider.testConnection(config);
 		expect(requestLog.every((r) => r.auth === 'Bearer test-key')).toBe(true);
+		expect(requestLog.every((r) => /^Dockhand\/.+vaultwarden-secret-provider/.test(r.ua ?? ''))).toBe(
+			true
+		);
 	});
 
 	test('does not double the Bearer prefix if the key already has one', async () => {

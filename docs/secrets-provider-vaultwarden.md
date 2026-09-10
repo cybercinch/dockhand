@@ -101,3 +101,5 @@ in-vault probe shows which custom fields an item has.
   deploy time — never persisted.
 - The API base URL is SSRF-guarded (loopback and cloud-metadata addresses are
   rejected; ordinary LAN ranges are allowed for an internal deployment).
+- Every request carries `User-Agent: Dockhand/<version> (vaultwarden-secret-provider)`
+  so the Vaultwarden-API access log shows which client is calling.

@@ -29,6 +29,11 @@ const VW_REF_RE = /^vw:\/\/[A-Za-z0-9](?:[A-Za-z0-9 _\-./]{0,253}[A-Za-z0-9])?$/
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const VALUE_FETCH_CONCURRENCY = 5;
+
+/** Identifies this client in the Vaultwarden-API access log. */
+const USER_AGENT = `Dockhand/${
+	typeof __APP_VERSION__ !== 'undefined' ? (__APP_VERSION__ ?? 'dev') : 'dev'
+} (vaultwarden-secret-provider)`;
 /** Selector values that mean "do not add a collection filter". */
 const WILDCARD_SELECTORS = new Set(['*', 'all']);
 
@@ -79,7 +84,7 @@ interface VwResponse {
 async function vwGet(config: VaultwardenConfig, path: string): Promise<VwResponse> {
 	const { statusCode, body } = await request(`${baseUrl(config)}${path}`, {
 		method: 'GET',
-		headers: { authorization: authHeader(config) },
+		headers: { authorization: authHeader(config), 'user-agent': USER_AGENT },
 		signal: AbortSignal.timeout(timeoutMs(config))
 	});
 	const text = await body.text().catch(() => '');
@@ -110,7 +115,7 @@ async function refreshVault(config: VaultwardenConfig, logPrefix: string): Promi
 	try {
 		const { statusCode, body } = await request(`${base}/refresh`, {
 			method: 'POST',
-			headers: { authorization: authHeader(config) },
+			headers: { authorization: authHeader(config), 'user-agent': USER_AGENT },
 			signal: AbortSignal.timeout(timeoutMs(config))
 		});
 		await body.text().catch(() => '');
