@@ -52,11 +52,15 @@ just build           # local amd64 image -> dockhand:local
 just run             # run it on :3000 with the docker socket
 just login           # docker login docker.io
 just push            # build + push docker.io/cybercinch/dockhand:<git describe> + :latest
+just deploy          # push, then a one-shot watchtower recreates `dockhand`
 just sync-upstream   # fast-forward main to upstream
 ```
 
 Override the registry or go multi-arch:
 `just registry=ghcr.io/cybercinch platform=linux/amd64,linux/arm64 push`.
+
+Dockhand must run **standalone** (never as a Dockhand-managed stack) with a
+**static** Caddy route — see [`docs/fork-deploy.md`](docs/fork-deploy.md).
 
 ---
 

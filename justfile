@@ -98,6 +98,26 @@ push-tag: lock buildx-setup
     @echo "==> pushed {{repo_image}}:{{tag}}"
 
 # ---------------------------------------------------------------------------
+# Deploy — push :latest, then a one-shot watchtower recreates `dockhand`
+# ---------------------------------------------------------------------------
+# Dockhand runs standalone on ONE host (never as a Dockhand-managed stack).
+# `just deploy` runs the watchtower on this machine; `just host=<ssh> deploy`
+# runs it on the remote Dockhand host instead. Assumes the running container is
+# named `dockhand` and its image is {{repo_image}}:latest.
+
+host := ""   # ssh target; empty = local docker
+
+_wt := "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once dockhand"
+
+# Push :latest, then one-shot watchtower recreates `dockhand` (local, or host=<ssh>).
+deploy: push
+    @if [ -n "{{host}}" ]; then \
+        echo "==> updating dockhand on {{host}}"; ssh {{host}} '{{_wt}}'; \
+    else \
+        echo "==> updating dockhand locally"; {{_wt}}; \
+    fi
+
+# ---------------------------------------------------------------------------
 # Run (local image, not the published fnsys/dockhand)
 # ---------------------------------------------------------------------------
 
