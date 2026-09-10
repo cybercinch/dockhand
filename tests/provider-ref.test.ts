@@ -59,6 +59,14 @@ describe('providerRefStatuses', () => {
 		expect(m.get('REDIS_URL')).toBe('checking');
 	});
 
+	test('unknown (not amber) when the probe could not complete', () => {
+		const m = providerRefStatuses(vars, 'vaultwarden', new Set(['DB_PASSWORD']), {
+			probeFailed: true
+		});
+		expect(m.get('DB_PASSWORD')).toBe('resolved'); // a hit still stands
+		expect(m.get('REDIS_URL')).toBe('unknown'); // absent + probe failed -> unknown
+	});
+
 	test('empty when the provider has no ref scheme', () => {
 		expect(providerRefStatuses(vars, 'doppler', new Set()).size).toBe(0);
 		expect(providerRefStatuses(vars, null, new Set()).size).toBe(0);

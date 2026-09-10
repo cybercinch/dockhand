@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Plus, Trash2, Key, AlertCircle, CheckCircle2, FileText, Pencil, CircleDot, Undo2, KeyRound, Loader2 } from 'lucide-svelte';
+	import { Plus, Trash2, Key, AlertCircle, CheckCircle2, FileText, Pencil, CircleDot, Undo2, KeyRound, Loader2, HelpCircle } from 'lucide-svelte';
 	import type { ProviderRefStatus } from '$lib/utils/provider-ref';
 
 	export interface EnvVar {
@@ -219,6 +219,8 @@
 										<KeyRound class="w-4 h-4 text-emerald-500" />
 									{:else if refStatus === 'checking'}
 										<Loader2 class="w-4 h-4 text-muted-foreground animate-spin" />
+									{:else if refStatus === 'unknown'}
+										<HelpCircle class="w-4 h-4 text-muted-foreground" />
 									{:else}
 										<AlertCircle class="w-4 h-4 text-amber-500" />
 									{/if}
@@ -229,8 +231,8 @@
 											Found in {providerName ?? 'the secret provider'} &mdash; resolved at deploy, never written to <code>.env</code>.
 										{:else if refStatus === 'checking'}
 											Checking {providerName ?? 'the secret provider'}&hellip;
-										{:else if probeError}
-											Couldn't check {providerName ?? 'the secret provider'}: {probeError}
+										{:else if refStatus === 'unknown'}
+											Couldn't check {providerName ?? 'the secret provider'} right now{probeError ? ` (${probeError})` : ''}. It may still resolve at deploy.
 										{:else}
 											Not found in {providerName ?? 'the secret provider'} yet &mdash; check the item name and the API key's permissions, or wait for it to re-sync.
 										{/if}

@@ -354,11 +354,11 @@ export const vaultwardenProvider: SecretProvider<VaultwardenConfig> = {
 		if (refs.length === 0) return [];
 		assertSafeProviderHost(config.apiBaseUrl, 'Vaultwarden');
 		const res = await vwGet(config, `/secrets${filterQuery(config)}`);
-		if (res.statusCode === 401 || res.statusCode === 403) {
-			throw new Error(statusMessage(res.statusCode, 'Vaultwarden'));
-		}
+		// Any non-2xx THROWS - the probe endpoint turns that into an "couldn't
+		// check" state, distinct from "checked, absent". Never swallow it into an
+		// empty result: that made a rate-limited probe look like "not found".
 		if (res.statusCode < 200 || res.statusCode >= 300 || !isJsonResponse(res.body)) {
-			return []; // transient (rate limit / 5xx / blip): "unknown", not an error
+			throw new Error(statusMessage(res.statusCode, 'Vaultwarden'));
 		}
 		const parsed = JSON.parse(res.body) as { secrets?: Array<{ name?: unknown }> };
 		const present = new Set(

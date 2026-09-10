@@ -223,8 +223,9 @@ for Dockhand.
    `providerRefStatuses()`), generalises the two hardcodes, and adds a per-row
    badge in `StackEnvVarsEditor.svelte`: a live probe of the bound provider marks
    each `vw://` (etc.) value **green** (found — resolves at deploy), **spinner**
-   (checking), or **amber** (not found — bad name / key permissions / provider
-   not re-synced yet). The probe endpoint (`.../[id]/probe`) now runs its bulk
+   (checking), **grey `?`** (probe couldn't complete — unreachable / rate limited;
+   *not* the same as "absent"), or **amber** (probe settled and the key is absent
+   — bad name / key permissions / provider not re-synced yet). The probe endpoint (`.../[id]/probe`) now runs its bulk
    and inline-ref checks **independently** — a mistyped bulk selector no longer
    suppresses the inline-ref result. Deploy-time resolution was always
    scheme-agnostic (server `provider.isReference`).

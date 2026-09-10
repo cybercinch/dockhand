@@ -112,7 +112,10 @@
 	// Per-variable provider-ref status (resolved / checking / unresolved) for the
 	// editor's badge - only rows whose value is a ref for the BOUND provider.
 	const refStatuses = $derived(
-		providerRefStatuses(variables, providerType, providerKeySet, { probing })
+		providerRefStatuses(variables, providerType, providerKeySet, {
+			probing,
+			probeFailed: probeError !== null
+		})
 	);
 
 	// The "injected at last deploy" banner only needs to surface keys that are

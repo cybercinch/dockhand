@@ -47,13 +47,15 @@ export function isProviderRef(
 	return scheme !== undefined && stripQuotes(value ?? '').startsWith(scheme);
 }
 
-export type ProviderRefStatus = 'resolved' | 'unresolved' | 'checking';
+export type ProviderRefStatus = 'resolved' | 'unresolved' | 'checking' | 'unknown';
 
 /**
  * Per-variable status for the env editor's provider-ref badge:
  *   - `resolved`   the live probe found this key in the bound provider
  *   - `checking`   value is a ref but a probe is still in flight
- *   - `unresolved` probe settled and the key is absent (bad name, missing
+ *   - `unknown`    the probe could not complete (unreachable / rate limited / …)
+ *                  - we can't say whether the key exists
+ *   - `unresolved` probe SETTLED and the key is absent (bad name, missing
  *                  permission, or the provider hasn't re-synced yet)
  *
  * Only variables whose value is a ref for `providerType` appear in the map.
@@ -62,7 +64,7 @@ export function providerRefStatuses(
 	variables: readonly { key: string; value: string }[],
 	providerType: string | null | undefined,
 	providerKeySet: ReadonlySet<string>,
-	opts: { probing?: boolean } = {}
+	opts: { probing?: boolean; probeFailed?: boolean } = {}
 ): Map<string, ProviderRefStatus> {
 	const out = new Map<string, ProviderRefStatus>();
 	const scheme = refSchemeFor(providerType);
@@ -72,7 +74,13 @@ export function providerRefStatuses(
 		if (!key || !stripQuotes(v.value ?? '').startsWith(scheme)) continue;
 		out.set(
 			key,
-			providerKeySet.has(key) ? 'resolved' : opts.probing ? 'checking' : 'unresolved'
+			providerKeySet.has(key)
+				? 'resolved'
+				: opts.probing
+					? 'checking'
+					: opts.probeFailed
+						? 'unknown'
+						: 'unresolved'
 		);
 	}
 	return out;

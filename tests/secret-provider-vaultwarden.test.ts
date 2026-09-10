@@ -263,12 +263,14 @@ describe('probeReferences (cheap probe path)', () => {
 		).toEqual(['vw://WATCHTOWER_NOTIFICATION_URL']);
 	});
 
-	test('a transient failure (rate limit) returns [] rather than throwing', async () => {
+	test('a 429 THROWS (not swallowed) so "couldn\'t check" != "not found"', async () => {
 		route('GET /secrets', 429, { error: 'too many requests' });
-		expect(await vaultwardenProvider.probeReferences!(config, ['vw://X'])).toEqual([]);
+		await expect(vaultwardenProvider.probeReferences!(config, ['vw://X'])).rejects.toThrow(
+			/rate limited/
+		);
 	});
 
-	test('401 still throws (real misconfig the operator should see)', async () => {
+	test('401 throws (real misconfig the operator should see)', async () => {
 		route('GET /secrets', 401, { error: 'unauthorized' });
 		await expect(vaultwardenProvider.probeReferences!(config, ['vw://X'])).rejects.toThrow(
 			/authentication failed/
