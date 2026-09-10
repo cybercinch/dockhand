@@ -105,9 +105,13 @@ push-tag: lock buildx-setup
 # runs it on the remote Dockhand host instead. Assumes the running container is
 # named `dockhand` and its image is {{repo_image}}:latest.
 
-host := ""   # ssh target; empty = local docker
+host       := ""       # ssh target; empty = local docker
+# containrrr/watchtower is unmaintained and announces a stale Docker API version.
+# Pin one the daemon accepts; swap the image for the maintained fork if needed.
+docker_api := env_var_or_default("DOCKER_API_VERSION", "1.44")
+wt_image   := env_var_or_default("WATCHTOWER_IMAGE", "containrrr/watchtower")
 
-_wt := "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once dockhand"
+_wt := "docker run --rm -e DOCKER_API_VERSION=" + docker_api + " -v /var/run/docker.sock:/var/run/docker.sock " + wt_image + " --run-once dockhand"
 
 # Push :latest, then one-shot watchtower recreates `dockhand` (local, or host=<ssh>).
 deploy: push

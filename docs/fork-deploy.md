@@ -56,6 +56,16 @@ just host=dockhand-box deploy    # ...or over SSH on the Dockhand host
 No token, no exposed port, nothing running between deploys — the `--run-once`
 watchtower is transient.
 
+If watchtower errors with *"client version 1.25 is too old"* (an unmaintained
+`containrrr/watchtower` against a daemon with a raised minimum API version),
+either bump `DOCKER_API_VERSION` or use the maintained fork:
+
+```sh
+DOCKER_API_VERSION=1.47 just host=dockhand-box deploy
+# or
+WATCHTOWER_IMAGE=ghcr.io/nicholas-fedor/watchtower just host=dockhand-box deploy
+```
+
 ## Alternatives
 
 - **Dockhand's built-in updater** — Settings → About does a registry-digest
