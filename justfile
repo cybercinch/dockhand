@@ -107,8 +107,9 @@ push-tag: lock buildx-setup
 
 host       := ""       # ssh target; empty = local docker
 # containrrr/watchtower is unmaintained and announces a stale Docker API version.
-# Pin one the daemon accepts; swap the image for the maintained fork if needed.
-docker_api := env_var_or_default("DOCKER_API_VERSION", "1.44")
+# 1.40 is the floor stated by daemons that reject it, and every daemon since
+# 19.03 accepts it. Override if yours wants a specific one.
+docker_api := env_var_or_default("DOCKER_API_VERSION", "1.40")
 wt_image   := env_var_or_default("WATCHTOWER_IMAGE", "containrrr/watchtower")
 
 _wt := "docker run --rm -e DOCKER_API_VERSION=" + docker_api + " -v /var/run/docker.sock:/var/run/docker.sock " + wt_image + " --run-once dockhand"

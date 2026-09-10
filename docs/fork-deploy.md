@@ -61,7 +61,7 @@ If watchtower errors with *"client version 1.25 is too old"* (an unmaintained
 either bump `DOCKER_API_VERSION` or use the maintained fork:
 
 ```sh
-DOCKER_API_VERSION=1.47 just host=dockhand-box deploy
+DOCKER_API_VERSION=1.44 just host=dockhand-box deploy
 # or
 WATCHTOWER_IMAGE=ghcr.io/nicholas-fedor/watchtower just host=dockhand-box deploy
 ```
