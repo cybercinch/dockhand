@@ -79,8 +79,11 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 
 	if (refs.length && provider.supportsReferences) {
 		try {
-			const resolved = await provider.resolveSecretReferences(row.config, refs);
-			resolvedRefs = [...resolved.keys()];
+			// Prefer the provider's cheap names-only probe (one request, no value
+			// fetch, no forced re-sync); fall back to the full per-ref resolve.
+			resolvedRefs = provider.probeReferences
+				? await provider.probeReferences(row.config, refs)
+				: [...(await provider.resolveSecretReferences(row.config, refs)).keys()];
 		} catch (e) {
 			if (!(e instanceof UnsupportedOperationError)) refError = shortError(e);
 		}

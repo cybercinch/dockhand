@@ -458,4 +458,24 @@ export interface SecretProvider<C extends SecretProviderConfig = SecretProviderC
 	 * concept throw {@link UnsupportedOperationError}.
 	 */
 	resolveBulk(config: C, selector: string): Promise<Record<string, string>>;
+
+	/**
+	 * OPTIONAL cheap path for the editor's live probe: which of `refs` currently
+	 * exist, by NAME only — no value fetch, no forced re-sync. Returns the subset
+	 * of `refs` (the ref strings) that resolve. A provider that omits this falls
+	 * back to {@link resolveSecretReferences} (which does the full per-ref work);
+	 * implement it when the backend has a cheap "list names" call so a probe on
+	 * every keystroke does not cost one request per ref (and cannot trip a rate
+	 * limit). Best-effort: transient failures should return `[]`, not throw.
+	 */
+	probeReferences?(config: C, refs: string[]): Promise<string[]>;
+
+	/**
+	 * OPTIONAL cheap path for the editor's live probe: the env-var KEY NAMES a
+	 * bulk selector would yield, WITHOUT fetching any values. A provider that
+	 * omits this falls back to `Object.keys(await resolveBulk(...))` — which for
+	 * some backends fetches every value just to learn the names. Implement it
+	 * when a names-only list is available.
+	 */
+	listBulkKeys?(config: C, selector: string): Promise<string[]>;
 }

@@ -54,8 +54,11 @@ export async function probeBulkKeysCached(
 	if (pending) return pending;
 
 	const call = (async () => {
-		const bulk = await provider.resolveBulk(config, selector);
-		const keys = Object.keys(bulk);
+		// Prefer the provider's names-only path; fall back to a full bulk pull
+		// (which for some backends fetches every value just to learn the names).
+		const keys = provider.listBulkKeys
+			? await provider.listBulkKeys(config, selector)
+			: Object.keys(await provider.resolveBulk(config, selector));
 		cache.set(cacheKey, { keys, at: Date.now() });
 		return keys;
 	})().finally(() => {

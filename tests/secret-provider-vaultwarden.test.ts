@@ -238,3 +238,54 @@ describe('resolveBulk', () => {
 		await expect(vaultwardenProvider.resolveBulk(config, 'all')).rejects.toThrow(/API_KEY/);
 	});
 });
+
+describe('probeReferences (cheap probe path)', () => {
+	test('one GET /secrets, no value fetch, no refresh; returns the refs that exist', async () => {
+		route('GET /secrets', 200, {
+			count: 2,
+			secrets: [{ name: 'DB_PASSWORD' }, { name: 'redis url' }]
+		});
+		const found = await vaultwardenProvider.probeReferences!(config, [
+			'vw://DB_PASSWORD',
+			'vw://redis url',
+			'vw://MISSING'
+		]);
+		expect(found.sort()).toEqual(['vw://DB_PASSWORD', 'vw://redis url']);
+		// exactly one request, and it is the list - never /secret/:name or /refresh
+		expect(requestLog).toHaveLength(1);
+		expect(requestLog[0]).toMatchObject({ method: 'GET', path: '/secrets' });
+	});
+
+	test('case-insensitive name match', async () => {
+		route('GET /secrets', 200, { count: 1, secrets: [{ name: 'Watchtower_Notification_Url' }] });
+		expect(
+			await vaultwardenProvider.probeReferences!(config, ['vw://WATCHTOWER_NOTIFICATION_URL'])
+		).toEqual(['vw://WATCHTOWER_NOTIFICATION_URL']);
+	});
+
+	test('a transient failure (rate limit) returns [] rather than throwing', async () => {
+		route('GET /secrets', 429, { error: 'too many requests' });
+		expect(await vaultwardenProvider.probeReferences!(config, ['vw://X'])).toEqual([]);
+	});
+
+	test('401 still throws (real misconfig the operator should see)', async () => {
+		route('GET /secrets', 401, { error: 'unauthorized' });
+		await expect(vaultwardenProvider.probeReferences!(config, ['vw://X'])).rejects.toThrow(
+			/authentication failed/
+		);
+	});
+});
+
+describe('listBulkKeys (cheap probe path)', () => {
+	test('maps names to env keys, no value fetch', async () => {
+		route('GET /secrets?collection_name=prod', 200, {
+			count: 2,
+			secrets: [{ name: 'POSTGRES_PASSWORD' }, { name: 'redis url' }]
+		});
+		expect((await vaultwardenProvider.listBulkKeys!(config, 'prod')).sort()).toEqual([
+			'POSTGRES_PASSWORD',
+			'REDIS_URL'
+		]);
+		expect(requestLog.every((r) => r.path.startsWith('/secrets'))).toBe(true);
+	});
+});

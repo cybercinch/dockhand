@@ -51,13 +51,23 @@ At deploy time Dockhand replaces each `vw://…` value with the secret fetched f
 `GET /secret/:name`. The organization / collection / folder filters from the
 provider config are applied to every lookup.
 
-- A missing item (`404`) triggers one `POST /refresh` (a synchronous Vaultwarden-API
-  re-sync, rate-limited to once/minute per API URL) and a retry — so a secret you
-  just added resolves without waiting out `SYNC_INTERVAL`. If it is still missing
-  after that, the literal `vw://…` string is left in place and logged; the deploy
-  continues.
+- **At deploy time**, a missing item (`404`) triggers one `POST /refresh` (a
+  synchronous Vaultwarden-API re-sync, rate-limited to once/minute per API URL)
+  and a retry — so a secret you just added resolves without waiting out
+  `SYNC_INTERVAL`. Still missing after that → the literal `vw://…` string is left
+  in place and logged; the deploy continues.
 - An auth or transport error fails the deploy (the item name, never the value,
   appears in the error).
+
+The editor also shows a live badge on each `vw://` row — green (found → resolves
+at deploy), spinner (checking), amber (not found yet). That badge probe is a
+single names-only `GET /secrets`; it does **not** fetch values or force a
+re-sync, so it stays cheap on every keystroke. A just-added secret goes green on
+the next background sync (`SYNC_INTERVAL`) or immediately after a deploy.
+
+> **Rate limiting:** Vaultwarden-API defaults to `RATE_LIMIT_MAX=30`/min per IP.
+> An interactive editor plus deploys can approach that. Add the Dockhand host to
+> the API's `ALLOWED_IPS` — whitelisted IPs bypass the limiter entirely.
 
 ## Bulk pull
 

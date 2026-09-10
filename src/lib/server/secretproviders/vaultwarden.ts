@@ -341,5 +341,45 @@ export const vaultwardenProvider: SecretProvider<VaultwardenConfig> = {
 		});
 		console.log(`[Vaultwarden] bulk pull injected ${Object.keys(out).length} secret(s)`);
 		return out;
+	},
+
+	// --- cheap probe paths (editor feedback only) --------------------------------
+	// One `GET /secrets` call, names only, no value fetch and NO forced re-sync -
+	// so a probe firing on every keystroke costs a single request regardless of
+	// how many refs, and cannot trip the API rate limit. A recently-added secret
+	// still turns green on the next background sync or on a deploy (which does
+	// force a re-sync).
+
+	async probeReferences(config: VaultwardenConfig, refs: string[]): Promise<string[]> {
+		if (refs.length === 0) return [];
+		assertSafeProviderHost(config.apiBaseUrl, 'Vaultwarden');
+		const res = await vwGet(config, `/secrets${filterQuery(config)}`);
+		if (res.statusCode === 401 || res.statusCode === 403) {
+			throw new Error(statusMessage(res.statusCode, 'Vaultwarden'));
+		}
+		if (res.statusCode < 200 || res.statusCode >= 300 || !isJsonResponse(res.body)) {
+			return []; // transient (rate limit / 5xx / blip): "unknown", not an error
+		}
+		const parsed = JSON.parse(res.body) as { secrets?: Array<{ name?: unknown }> };
+		const present = new Set(
+			(parsed.secrets ?? [])
+				.map((s) => (typeof s.name === 'string' ? s.name.toLowerCase() : ''))
+				.filter(Boolean)
+		);
+		return refs.filter((ref) => present.has(refName(ref).toLowerCase()));
+	},
+
+	async listBulkKeys(config: VaultwardenConfig, selector: string): Promise<string[]> {
+		assertSafeProviderHost(config.apiBaseUrl, 'Vaultwarden');
+		const trimmed = (selector ?? '').trim();
+		const collectionOverride =
+			trimmed && !WILDCARD_SELECTORS.has(trimmed.toLowerCase()) ? trimmed : undefined;
+		const names = await listSecretNames(config, collectionOverride);
+		const keys = new Set<string>();
+		for (const name of names) {
+			const key = vaultwardenNameToEnvKey(name);
+			if (key) keys.add(key);
+		}
+		return [...keys];
 	}
 };

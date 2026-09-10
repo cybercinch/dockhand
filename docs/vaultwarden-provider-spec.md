@@ -228,6 +228,12 @@ for Dockhand.
    and inline-ref checks **independently** — a mistyped bulk selector no longer
    suppresses the inline-ref result. Deploy-time resolution was always
    scheme-agnostic (server `provider.isReference`).
+   The `SecretProvider` contract gains two OPTIONAL cheap-probe hooks —
+   `probeReferences(config, refs)` and `listBulkKeys(config, selector)` — so the
+   editor probe is **one names-only `GET /secrets`** instead of N value fetches
+   (+ a forced re-sync) per keystroke. Without them a probe on a not-yet-created
+   secret could trip Vaultwarden-API's `RATE_LIMIT_MAX` (default 30/min). The
+   deploy path keeps the value fetch + `POST /refresh` retry.
    ⚠️ **`GitStackModal.svelte` had NO provider probe at all** (only the non-git
    `StackModal.svelte` did) — so for a git-backed stack the badge showed amber
    for every ref regardless, and there was never a pre-deploy "IN VAULT" marker.
