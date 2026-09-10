@@ -100,12 +100,11 @@ push-tag: lock buildx-setup
 # ---------------------------------------------------------------------------
 # Deploy — push :latest, then a one-shot watchtower recreates `dockhand`
 # ---------------------------------------------------------------------------
-# Dockhand runs standalone on ONE host (never as a Dockhand-managed stack).
-# `just deploy` runs the watchtower on this machine; `just host=<ssh> deploy`
-# runs it on the remote Dockhand host instead. Assumes the running container is
-# named `dockhand` and its image is {{repo_image}}:latest.
+# Dockhand runs standalone on ONE remote host (never as a Dockhand-managed
+# stack). `just run` covers local; `just deploy` targets the real host.
+# Assumes the container there is named `dockhand`, image {{repo_image}}:latest.
 
-host       := ""       # ssh target; empty = local docker
+host       := env_var_or_default("DOCKHAND_HOST", "docker1")   # ssh target
 # containrrr/watchtower is unmaintained and announces a stale Docker API version.
 # 1.40 is the floor stated by daemons that reject it, and every daemon since
 # 19.03 accepts it. Override if yours wants a specific one.
@@ -114,13 +113,10 @@ wt_image   := env_var_or_default("WATCHTOWER_IMAGE", "containrrr/watchtower")
 
 _wt := "docker run --rm -e DOCKER_API_VERSION=" + docker_api + " -v /var/run/docker.sock:/var/run/docker.sock " + wt_image + " --run-once dockhand"
 
-# Push :latest, then one-shot watchtower recreates `dockhand` (local, or host=<ssh>).
+# Push :latest, then a one-shot watchtower recreates `dockhand` (DOCKHAND_HOST).
 deploy: push
-    @if [ -n "{{host}}" ]; then \
-        echo "==> updating dockhand on {{host}}"; ssh {{host}} '{{_wt}}'; \
-    else \
-        echo "==> updating dockhand locally"; {{_wt}}; \
-    fi
+    @echo "==> updating dockhand on {{host}}"
+    ssh {{host}} '{{_wt}}'
 
 # ---------------------------------------------------------------------------
 # Run (local image, not the published fnsys/dockhand)

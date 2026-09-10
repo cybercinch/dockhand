@@ -44,14 +44,17 @@ as `dockhand`. Both watchtower and Dockhand's own updater do
 
 ## 3. Deploy with `just`
 
-`just deploy` builds + pushes `:latest`, then runs a one-shot watchtower
-(`--run-once dockhand`) that pulls the new image and recreates the container:
+`just deploy` builds + pushes `:latest`, then SSHes to the Dockhand host and
+runs a one-shot watchtower (`--run-once dockhand`) that pulls the new image and
+recreates the container:
 
 ```sh
 just login
-just deploy                     # watchtower runs on this machine
-just host=dockhand-box deploy    # ...or over SSH on the Dockhand host
+just deploy                    # SSHes to DOCKHAND_HOST (default: docker1)
+DOCKHAND_HOST=box just deploy   # ...a different host
 ```
+
+(`just run` covers a local `dockhand-local` container for development.)
 
 No token, no exposed port, nothing running between deploys — the `--run-once`
 watchtower is transient.
@@ -61,9 +64,8 @@ If watchtower errors with *"client version 1.25 is too old"* (an unmaintained
 either bump `DOCKER_API_VERSION` or use the maintained fork:
 
 ```sh
-DOCKER_API_VERSION=1.44 just host=dockhand-box deploy
-# or
-WATCHTOWER_IMAGE=ghcr.io/nicholas-fedor/watchtower just host=dockhand-box deploy
+DOCKER_API_VERSION=1.44 just deploy
+WATCHTOWER_IMAGE=ghcr.io/nicholas-fedor/watchtower just deploy
 ```
 
 ## Alternatives
